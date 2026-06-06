@@ -17,6 +17,70 @@ def get_sb():
         pass
     return sb
 
+
+# ── CALENDARIO ────────────────────────────────────────
+
+def eventi_del_mese(anno, mese, user_id):
+    sb = get_sb()
+    try:
+        from datetime import date
+        import calendar
+        primo = f"{anno}-{mese:02d}-01"
+        ultimo_giorno = calendar.monthrange(anno, mese)[1]
+        ultimo = f"{anno}-{mese:02d}-{ultimo_giorno}"
+        res = sb.table("calendario").select(
+            "*, proprietario:utenti!calendario_proprietario_id_fkey(nome, cognome),"
+            "creatore:utenti!calendario_creato_da_fkey(nome, cognome)"
+        ).or_(
+            f"proprietario_id.eq.{user_id},"
+            f"partecipanti.cs.[\"{user_id}\"]"
+        ).gte("data_inizio", primo).lte("data_inizio", ultimo + "T23:59:59").execute()
+        return res.data or []
+    except Exception as e:
+        return []
+
+def eventi_oggi(user_id):
+    sb = get_sb()
+    try:
+        from datetime import date
+        oggi = date.today().isoformat()
+        res = sb.table("calendario").select(
+            "*, proprietario:utenti!calendario_proprietario_id_fkey(nome, cognome)"
+        ).or_(
+            f"proprietario_id.eq.{user_id},"
+            f"partecipanti.cs.[\"{user_id}\"]"
+        ).gte("data_inizio", f"{oggi}T00:00:00").lte(
+            "data_inizio", f"{oggi}T23:59:59"
+        ).order("data_inizio").execute()
+        return res.data or []
+    except:
+        return []
+
+def crea_evento(dati, user_id):
+    sb = get_sb()
+    try:
+        dati["creato_da"] = user_id
+        res = sb.table("calendario").insert(dati).execute()
+        return res.data[0] if res.data else None
+    except Exception as e:
+        return None
+
+def aggiorna_evento(evento_id, dati):
+    sb = get_sb()
+    try:
+        from datetime import datetime
+        dati["updated_at"] = datetime.utcnow().isoformat()
+        sb.table("calendario").update(dati).eq("id", evento_id).execute()
+    except:
+        pass
+
+def elimina_evento(evento_id):
+    sb = get_sb()
+    try:
+        sb.table("calendario").delete().eq("id", evento_id).execute()
+    except:
+        pass
+
 # ── AUTH ──────────────────────────────────────────────
 
 def get_profilo_utente(user_id):
