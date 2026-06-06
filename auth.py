@@ -35,21 +35,33 @@ def pagina_login():
             if not email or not password:
                 st.error("Inserisci email e password.")
                 return
+            
+            # DEBUG step 1 - test secrets
+            st.write(f"URL: {st.secrets.get('SUPABASE_URL', 'NON TROVATO')[:30]}")
+            st.write(f"SERVICE KEY presente: {'SUPABASE_SERVICE_KEY' in st.secrets}")
+            
             with st.spinner("Accesso in corso..."):
                 user, err = login_utente(email, password)
-            if err:
-                st.error("Credenziali non valide.")
+            
+            # DEBUG step 2 - login
+            st.write(f"Login user: {user.id if user else 'None'}")
+            st.write(f"Login err: {err}")
+            
+            if err or not user:
+                st.error(f"Errore login: {err}")
                 return
+            
+            # DEBUG step 3 - query diretta
+            from db import get_sb
+            sb = get_sb()
+            try:
+                res = sb.table("utenti").select("*").execute()
+                st.write(f"Tutti gli utenti: {res.data}")
+            except Exception as e:
+                st.write(f"Errore query: {e}")
+            
             profilo = get_profilo_utente(user.id)
-            if not profilo:
-                st.error("Utente non trovato nel sistema. Contatta un amministratore.")
-                return
-            if not profilo.get("attivo", True):
-                st.error("Account disattivato. Contatta un amministratore.")
-                return
-            st.session_state.utente = profilo
-            st.session_state.supabase_user = user
-            st.rerun()
+            st.write(f"Profilo: {profilo}")
 
 def do_logout():
     logout_utente()
