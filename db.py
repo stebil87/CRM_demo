@@ -18,6 +18,104 @@ def get_sb():
     return sb
 
 
+# ── AUTORIZZAZIONI CALENDARIO ─────────────────────────────────────────────
+
+def get_autorizzazioni_calendario(utente_id):
+    """Restituisce i calendari che utente_id può vedere o modificare."""
+    sb = get_sb()
+    try:
+        res = sb.table("calendario_autorizzazioni").select(
+            "*, proprietario:utenti!calendario_autorizzazioni_calendario_di_fkey"
+            "(id, nome, cognome)"
+        ).eq("utente_id", utente_id).execute()
+        return res.data or []
+    except:
+        return []
+
+def get_calendari_visibili(utente_id):
+    """Lista di user_id i cui calendari sono visibili a utente_id (incluso il proprio)."""
+    sb = get_sb()
+    try:
+        res = sb.table("calendario_autorizzazioni").select(
+            "calendario_di"
+        ).eq("utente_id", utente_id).eq("puo_vedere", True).execute()
+        ids = [r["calendario_di"] for r in (res.data or [])]
+        if utente_id not in ids:
+            ids.append(utente_id)
+        return ids
+    except:
+        return [utente_id]
+
+def get_calendari_modificabili(utente_id):
+    """Lista di user_id i cui calendari sono modificabili da utente_id (incluso il proprio)."""
+    sb = get_sb()
+    try:
+        res = sb.table("calendario_autorizzazioni").select(
+            "calendario_di"
+        ).eq("utente_id", utente_id).eq("puo_modificare", True).execute()
+        ids = [r["calendario_di"] for r in (res.data or [])]
+        if utente_id not in ids:
+            ids.append(utente_id)
+        return ids
+    except:
+        return [utente_id]
+
+def salva_autorizzazione_calendario(utente_id, calendario_di, puo_vedere, puo_modificare):
+    sb = get_sb()
+    try:
+        # upsert
+        sb.table("calendario_autorizzazioni").upsert({
+            "utente_id": utente_id,
+            "calendario_di": calendario_di,
+            "puo_vedere": puo_vedere,
+            "puo_modificare": puo_modificare,
+        }, on_conflict="utente_id,calendario_di").execute()
+        return None
+    except Exception as e:
+        return str(e)
+
+def elimina_autorizzazione_calendario(utente_id, calendario_di):
+    sb = get_sb()
+    try:
+        sb.table("calendario_autorizzazioni").delete().eq(
+            "utente_id", utente_id
+        ).eq("calendario_di", calendario_di).execute()
+        return None
+    except Exception as e:
+        return str(e)
+
+def eventi_del_mese_multi(anno, mese, utenti_ids):
+    """Carica eventi per una lista di proprietari."""
+    sb = get_sb()
+    try:
+        import calendar as cal_lib
+        primo = f"{anno}-{mese:02d}-01"
+        ultimo_giorno = cal_lib.monthrange(anno, mese)[1]
+        ultimo = f"{anno}-{mese:02d}-{ultimo_giorno}T23:59:59"
+        res = sb.table("calendario").select(
+            "*, proprietario:utenti!calendario_proprietario_id_fkey(id, nome, cognome)"
+        ).in_("proprietario_id", utenti_ids).gte(
+            "data_inizio", primo
+        ).lte("data_inizio", ultimo).execute()
+        return res.data or []
+    except:
+        return []
+
+def eventi_oggi_multi(utenti_ids):
+    sb = get_sb()
+    try:
+        from datetime import date
+        oggi = date.today().isoformat()
+        res = sb.table("calendario").select(
+            "*, proprietario:utenti!calendario_proprietario_id_fkey(id, nome, cognome)"
+        ).in_("proprietario_id", utenti_ids).gte(
+            "data_inizio", f"{oggi}T00:00:00"
+        ).lte("data_inizio", f"{oggi}T23:59:59").order("data_inizio").execute()
+        return res.data or []
+    except:
+        return []
+
+
 # ── CALENDARIO ────────────────────────────────────────
 
 def eventi_del_mese(anno, mese, user_id):
