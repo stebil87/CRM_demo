@@ -17,6 +17,8 @@ def is_event_manager(utente):
 
 
 def _saluto(utente):
+    from datetime import datetime
+    import random
     ora = datetime.now().hour
     nome = utente.get("nome", "")
 
@@ -36,43 +38,52 @@ def _saluto(utente):
             f"Ehi {nome}, è ora di pranzo. Il lavoro può aspettare, lo stomaco no.",
             f"Mezzogiorno {nome}! Meritato.",
             f"Ciao {nome}! Pausa pranzo — ricarica le pile che il pomeriggio è lungo.",
-            f"Ehi {nome}, molla tutto e vai a mangiare. Il CRM ti aspetta.",
-            f"Buon pranzo {nome}! Almeno un pasto al giorno lontano dallo schermo, dai.",
         ]
     elif 14 <= ora < 18:
         saluti = [
             f"Buon pomeriggio {nome}! Forza, manca meno di stamattina.",
             f"Ehi {nome}, pomeriggio! Il picco di stanchezza passa, promesso.",
-            f"Ciao {nome}! Siamo nel pomeriggio — momento perfetto per chiudere qualcosa in sospeso.",
+            f"Ciao {nome}! Momento perfetto per chiudere qualcosa in sospeso.",
             f"Buon pomeriggio {nome}! Un cliente alla volta, ce la fai.",
-            f"Ehi {nome}! Pomeriggio produttivo in arrivo. O almeno ci proviamo.",
-            f"Ciao {nome}, pomeriggio! Ancora qualche ora e poi libertà.",
         ]
     elif 18 <= ora < 22:
         saluti = [
             f"Buonasera {nome}! Ancora qui? Sei una forza.",
             f"Ehi {nome}, buonasera! Quasi fatta per oggi.",
-            f"Buonasera {nome}! L'ufficio ti ringrazia per la dedizione.",
-            f"Ciao {nome}, buonasera! Ancora un po' e poi meritatissimo riposo.",
-            f"Buonasera {nome}! Stai finendo o stai iniziando? In ogni caso, in bocca al lupo.",
-            f"Ehi {nome}! Buonasera. A quest'ora i clienti dormono, tu no. Rispetto.",
+            f"Buonasera {nome}! Ancora un po' e poi meritatissimo riposo.",
         ]
     else:
         saluti = [
             f"Ehi {nome}, sei sicuro di essere qui a quest'ora?",
-            f"Ciao {nome}! A quest'ora o sei un notturno di professione o c'è una scadenza domani.",
             f"Buonanotte {nome}! Il CRM è aperto 24 ore, ma tu dovresti dormire.",
             f"Ehi {nome}, notte fonda. Chiudi il laptop, dai.",
-            f"Ciao {nome}! Notte. Domani il CRM sarà ancora qui, te lo prometto.",
         ]
 
     testo = random.choice(saluti)
+
     st.markdown(
-        "<div style='background:white;border:1px solid #eaeaf0;"
-        "border-left:4px solid #1a1a2e;border-radius:8px;"
-        "padding:14px 20px;margin-bottom:20px;font-size:14px;color:#1a1a2e;'>"
-        + testo +
-        "</div>",
+        f"""
+        <div style='
+            background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%);
+            border-radius: 12px;
+            padding: 24px 32px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 16px rgba(26,26,46,0.15);
+        '>
+            <div style='
+                font-size: 22px;
+                font-weight: 700;
+                color: white;
+                letter-spacing: -0.3px;
+                margin-bottom: 4px;
+            '>{testo}</div>
+            <div style='
+                font-size: 12px;
+                color: rgba(255,255,255,0.45);
+                letter-spacing: 0.5px;
+            '>1908 Group — CRM</div>
+        </div>
+        """,
         unsafe_allow_html=True
     )
 
