@@ -20,7 +20,7 @@ def pagina_dashboard(utente):
     oggi_fu = followup_oggi()
     prossimi_fu = followup_prossimi7()
     ids_visibili = get_calendari_visibili(utente["id"])
-    ev_oggi = eventi_oggi_multi(ids_visibili)
+    ev_oggi = eventi_oggi_multi(tuple(ids_visibili))
 
     offerte_df = pd.DataFrame(stats["offerte_data"]) if stats["offerte_data"] else pd.DataFrame()
     clienti_df = pd.DataFrame(stats["clienti_data"]) if stats["clienti_data"] else pd.DataFrame()
