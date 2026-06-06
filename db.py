@@ -58,7 +58,6 @@ def lista_template(user_id):
         return miei + condivisi
     except Exception as e:
         return []
-
 def get_condivisioni_template(template_id):
     """Chi ha accesso a questo template."""
     sb = get_sb()
