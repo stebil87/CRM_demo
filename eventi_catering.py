@@ -128,6 +128,172 @@ def _scheda_evento(ev, utente, colore_stato):
         else:
             st.info("Non hai i permessi per modificare questo evento.")
 
+def _tab_beo(ev, utente):
+    st.markdown("**Banquet Event Order**")
+    st.markdown("Compila i dettagli operativi e genera il documento ufficiale.")
+    st.markdown("---")
+
+    from db import get_cliente, get_offerta, aggiorna_evento_catering
+
+    cliente = get_cliente(ev.get("cliente_id")) if ev.get("cliente_id") else {}
+    offerta = get_offerta(ev.get("offerta_id")) if ev.get("offerta_id") else {}
+
+    # Campi aggiuntivi BEO
+    col1, col2 = st.columns(2)
+    with col1:
+        coperti = st.number_input(
+            "Numero coperti",
+            min_value=0, value=ev.get("numero_coperti") or 0,
+            key=f"beo_coperti_{ev['id']}"
+        )
+        referente_nome = st.text_input(
+            "Referente cliente il giorno dell'evento",
+            value=ev.get("referente_cliente_nome") or "",
+            key=f"beo_ref_nome_{ev['id']}"
+        )
+        referente_tel = st.text_input(
+            "Telefono referente",
+            value=ev.get("referente_cliente_telefono") or "",
+            key=f"beo_ref_tel_{ev['id']}"
+        )
+    with col2:
+        setup_sala = st.text_area(
+            "Setup sala",
+            value=ev.get("setup_sala") or "",
+            height=100,
+            key=f"beo_setup_{ev['id']}"
+        )
+        note_allergeni = st.text_area(
+            "Note allergeni",
+            value=ev.get("note_allergeni") or "",
+            height=100,
+            key=f"beo_allergeni_{ev['id']}"
+        )
+
+    col3, col4 = st.columns(2)
+    with col3:
+        note_cucina = st.text_area(
+            "Note cucina",
+            value=ev.get("note_cucina") or "",
+            height=100,
+            key=f"beo_cucina_{ev['id']}"
+        )
+    with col4:
+        note_servizio = st.text_area(
+            "Note servizio",
+            value=ev.get("note_servizio") or "",
+            height=100,
+            key=f"beo_servizio_{ev['id']}"
+        )
+
+    # Timeline
+    st.markdown("---")
+    st.markdown("**Timeline operativa**")
+    st.caption("Aggiungi le tappe della giornata in ordine cronologico.")
+
+    state_key_tl = f"timeline_{ev['id']}"
+    if state_key_tl not in st.session_state:
+        tl = ev.get("timeline") or []
+        if isinstance(tl, str):
+            import json
+            try:
+                tl = json.loads(tl)
+            except:
+                tl = []
+        st.session_state[state_key_tl] = tl
+
+    timeline = st.session_state[state_key_tl]
+
+    for i, t in enumerate(timeline):
+        col1, col2, col3, col4 = st.columns([1.5, 3, 2, 1])
+        with col1:
+            orario = st.text_input(
+                "Orario", value=t.get("orario", ""),
+                placeholder="08:00",
+                key=f"tl_ora_{ev['id']}_{i}"
+            )
+        with col2:
+            attivita = st.text_input(
+                "Attivita", value=t.get("attivita", ""),
+                key=f"tl_att_{ev['id']}_{i}"
+            )
+        with col3:
+            responsabile = st.text_input(
+                "Responsabile", value=t.get("responsabile", ""),
+                key=f"tl_resp_{ev['id']}_{i}"
+            )
+        with col4:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("Rimuovi", key=f"tl_del_{ev['id']}_{i}"):
+                st.session_state[state_key_tl].pop(i)
+                st.rerun()
+        timeline[i] = {
+            "orario": orario,
+            "attivita": attivita,
+            "responsabile": responsabile,
+            "note": t.get("note", "")
+        }
+
+    st.session_state[state_key_tl] = timeline
+
+    if st.button("Aggiungi tappa", key=f"tl_add_{ev['id']}"):
+        st.session_state[state_key_tl].append({
+            "orario": "", "attivita": "", "responsabile": "", "note": ""
+        })
+        st.rerun()
+
+    st.markdown("---")
+
+    col_salva, col_genera = st.columns(2)
+
+    with col_salva:
+        if st.button("Salva dati BEO", key=f"beo_salva_{ev['id']}", use_container_width=True):
+            aggiorna_evento_catering(ev["id"], {
+                "numero_coperti": coperti,
+                "referente_cliente_nome": referente_nome,
+                "referente_cliente_telefono": referente_tel,
+                "setup_sala": setup_sala,
+                "note_allergeni": note_allergeni,
+                "note_cucina": note_cucina,
+                "note_servizio": note_servizio,
+                "timeline": st.session_state[state_key_tl],
+            })
+            st.success("Dati BEO salvati.")
+            st.rerun()
+
+    with col_genera:
+        if st.button("Genera PDF BEO", key=f"beo_gen_{ev['id']}", use_container_width=True):
+            # Salva prima i dati aggiornati
+            aggiorna_evento_catering(ev["id"], {
+                "numero_coperti": coperti,
+                "referente_cliente_nome": referente_nome,
+                "referente_cliente_telefono": referente_tel,
+                "setup_sala": setup_sala,
+                "note_allergeni": note_allergeni,
+                "note_cucina": note_cucina,
+                "note_servizio": note_servizio,
+                "timeline": st.session_state[state_key_tl],
+            })
+            # Ricarica evento aggiornato
+            from db import get_evento_catering
+            ev_aggiornato = get_evento_catering(ev["id"]) or ev
+            ev_aggiornato["timeline"] = st.session_state[state_key_tl]
+
+            with st.spinner("Generazione BEO in corso..."):
+                from beo_generator import genera_beo
+                pdf_bytes = genera_beo(ev_aggiornato, cliente, offerta)
+
+            if pdf_bytes:
+                nome_file = f"BEO-{ev['id'][:8].upper()}.pdf"
+                st.download_button(
+                    label="Scarica BEO",
+                    data=pdf_bytes,
+                    file_name=nome_file,
+                    mime="application/pdf",
+                    key=f"beo_dl_{ev['id']}"
+                )
+                st.success("BEO generato.")
+
 
 def _gestione_collaboratori(ev, utente, ):
     collaboratori = lista_collaboratori_evento(ev["id"])
