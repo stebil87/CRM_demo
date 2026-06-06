@@ -3,8 +3,28 @@ from db import lista_clienti, get_cliente, crea_cliente, aggiorna_cliente, elimi
 from auth import can_edit, is_admin
 
 STATI = ["prospect", "attivo", "inattivo", "perso"]
-PAESI = ["Italia", "Svizzera", "Germania", "Francia", "Austria", "Altro"]
-SETTORI = ["Consulenza", "Tecnologia", "Commercio", "Industria", "Servizi", "Sanità", "Altro"]
+SETTORI = ["Consulenza", "Tecnologia", "Commercio", "Industria", "Servizi", "Sanità", "Finanza", "Immobiliare", "Logistica", "Turismo", "Alimentare", "Altro"]
+
+PAESI = [
+    "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Arabia Saudita", "Argentina",
+    "Armenia", "Australia", "Austria", "Azerbaigian", "Bahrain", "Bangladesh", "Belgio",
+    "Bielorussia", "Bolivia", "Bosnia ed Erzegovina", "Brasile", "Bulgaria", "Cambogia",
+    "Camerun", "Canada", "Cile", "Cina", "Cipro", "Colombia", "Corea del Nord", "Corea del Sud",
+    "Costa Rica", "Croazia", "Cuba", "Danimarca", "Ecuador", "Egitto", "Emirati Arabi Uniti",
+    "Estonia", "Etiopia", "Filippine", "Finlandia", "Francia", "Georgia", "Germania", "Ghana",
+    "Giappone", "Giordania", "Grecia", "Guatemala", "Hong Kong", "India", "Indonesia", "Iran",
+    "Iraq", "Irlanda", "Islanda", "Israele", "Italia", "Kazakhstan", "Kenya", "Kuwait",
+    "Laos", "Lettonia", "Libano", "Libia", "Liechtenstein", "Lituania", "Lussemburgo",
+    "Macedonia del Nord", "Malaysia", "Malta", "Marocco", "Messico", "Moldova", "Monaco",
+    "Mongolia", "Montenegro", "Mozambico", "Myanmar", "Nepal", "Nicaragua", "Nigeria",
+    "Norvegia", "Nuova Zelanda", "Oman", "Paesi Bassi", "Pakistan", "Panama", "Paraguay",
+    "Peru", "Polonia", "Portogallo", "Qatar", "Regno Unito", "Repubblica Ceca", "Repubblica Dominicana",
+    "Romania", "Russia", "Rwanda", "San Marino", "Senegal", "Serbia", "Singapore",
+    "Siria", "Slovacchia", "Slovenia", "Somalia", "Spagna", "Sri Lanka", "Sudafrica",
+    "Sudan", "Svezia", "Svizzera", "Taiwan", "Tanzania", "Thailandia", "Tunisia",
+    "Turchia", "Ucraina", "Uganda", "Ungheria", "Uruguay", "Uzbekistan", "Venezuela",
+    "Vietnam", "Yemen", "Zambia", "Zimbabwe"
+]
 
 def nome_display(c):
     if c["tipo"] == "giuridica":
@@ -12,14 +32,14 @@ def nome_display(c):
     return f"{c.get('nome','')} {c.get('cognome','')}".strip() or "—"
 
 def pagina_clienti(utente):
-    st.title("👥 Clienti")
+    st.title("Clienti")
 
-    tab_lista, tab_nuovo = st.tabs(["Lista clienti", "➕ Nuovo cliente"])
+    tab_lista, tab_nuovo = st.tabs(["Lista clienti", "Nuovo cliente"])
 
     with tab_lista:
         col1, col2 = st.columns([3, 1])
         with col1:
-            cerca = st.text_input("🔍 Cerca per nome, email...", key="cerca_clienti")
+            cerca = st.text_input("Cerca per nome, email...", key="cerca_clienti")
         with col2:
             stato_filtro = st.selectbox("Stato", ["tutti"] + STATI, key="filtro_stato")
 
@@ -32,7 +52,8 @@ def pagina_clienti(utente):
             st.info("Nessun cliente trovato.")
         else:
             for c in clienti:
-                with st.expander(f"{'🏢' if c['tipo']=='giuridica' else '👤'} {nome_display(c)} — {c.get('stato','').upper()}"):
+                tipo_label = "Azienda" if c["tipo"] == "giuridica" else "Persona fisica"
+                with st.expander(f"{nome_display(c)}   |   {tipo_label}   |   {c.get('stato','').upper()}"):
                     _scheda_cliente(c, utente)
 
     with tab_nuovo:
@@ -46,46 +67,45 @@ def _scheda_cliente(c, utente):
     with col1:
         if c["tipo"] == "giuridica":
             st.markdown(f"**Ragione sociale:** {c.get('ragione_sociale','—')}")
-            st.markdown(f"**P.IVA:** {c.get('partita_iva','—')}")
+            st.markdown(f"**Codice IDI:** {c.get('codice_idi','—')}")
             st.markdown(f"**Settore:** {c.get('settore','—')}")
+            st.markdown(f"**Referente:** {c.get('contatto_nome','')} {c.get('contatto_cognome','')} — {c.get('contatto_ruolo','—')}")
+            st.markdown(f"**Email referente:** {c.get('contatto_email','—')}")
+            st.markdown(f"**Tel referente:** {c.get('contatto_telefono','—')}")
         else:
             st.markdown(f"**Nome:** {c.get('nome','')} {c.get('cognome','')}")
-            st.markdown(f"**C.F.:** {c.get('codice_fiscale','—')}")
-            st.markdown(f"**Nato il:** {c.get('data_nascita','—')}")
+            st.markdown(f"**Data di nascita:** {c.get('data_nascita','—')}")
         st.markdown(f"**Email:** {c.get('email','—')}")
         st.markdown(f"**Telefono:** {c.get('telefono','—')}")
     with col2:
-        st.markdown(f"**Indirizzo:** {c.get('indirizzo','—')}, {c.get('citta','—')}")
-        if c["tipo"] == "giuridica":
-            st.markdown(f"**Referente:** {c.get('contatto_nome','')} {c.get('contatto_cognome','')} ({c.get('contatto_ruolo','—')})")
-            st.markdown(f"**Email referente:** {c.get('contatto_email','—')}")
-            st.markdown(f"**Tel referente:** {c.get('contatto_telefono','—')}")
+        st.markdown(f"**Indirizzo:** {c.get('indirizzo','—')}")
+        st.markdown(f"**Citta:** {c.get('citta','—')} {c.get('cap','')}")
+        st.markdown(f"**Paese:** {c.get('paese','—')}")
         st.markdown(f"**Note:** {c.get('note','—')}")
 
     col_a, col_b, col_c, col_d = st.columns(4)
     with col_a:
-        if st.button("✏️ Modifica", key=f"mod_{c['id']}", disabled=not can_edit(utente)):
+        if st.button("Modifica", key=f"mod_{c['id']}", disabled=not can_edit(utente)):
             st.session_state[f"edit_{c['id']}"] = True
     with col_b:
-        if st.button("📔 Diario", key=f"dir_{c['id']}"):
+        if st.button("Diario", key=f"dir_{c['id']}"):
             st.session_state.pagina = "diario"
             st.session_state.cliente_id = c["id"]
             st.session_state.cliente_nome = nome_display(c)
             st.rerun()
     with col_c:
-        if st.button("📄 Offerte", key=f"off_{c['id']}"):
+        if st.button("Offerte", key=f"off_{c['id']}"):
             st.session_state.pagina = "offerte"
             st.session_state.cliente_id = c["id"]
             st.session_state.cliente_nome = nome_display(c)
             st.rerun()
     with col_d:
-        if st.button("📁 Documenti", key=f"doc_{c['id']}"):
+        if st.button("Documenti", key=f"doc_{c['id']}"):
             st.session_state.pagina = "documenti"
             st.session_state.cliente_id = c["id"]
             st.session_state.cliente_nome = nome_display(c)
             st.rerun()
 
-    # Form modifica inline
     if st.session_state.get(f"edit_{c['id']}"):
         st.markdown("---")
         _form_modifica_cliente(c, utente)
@@ -93,50 +113,64 @@ def _scheda_cliente(c, utente):
 def _form_cliente(dati_default=None, key_prefix="new"):
     d = dati_default or {}
     tipo = st.radio("Tipo cliente", ["fisica", "giuridica"],
-                    index=0 if d.get("tipo","fisica") == "fisica" else 1,
+                    index=0 if d.get("tipo", "fisica") == "fisica" else 1,
                     key=f"{key_prefix}_tipo",
-                    horizontal=True)
+                    horizontal=True,
+                    format_func=lambda x: "Persona fisica" if x == "fisica" else "Persona giuridica")
     st.markdown("---")
     risultato = {"tipo": tipo}
 
     if tipo == "giuridica":
         col1, col2 = st.columns(2)
         with col1:
-            risultato["ragione_sociale"] = st.text_input("Ragione sociale *", value=d.get("ragione_sociale",""), key=f"{key_prefix}_rs")
-            risultato["partita_iva"] = st.text_input("Partita IVA", value=d.get("partita_iva",""), key=f"{key_prefix}_piva")
+            risultato["ragione_sociale"] = st.text_input("Ragione sociale *", value=d.get("ragione_sociale", ""), key=f"{key_prefix}_rs")
+            risultato["codice_idi"] = st.text_input("Codice IDI (es. CHE-231.008.XXX)", value=d.get("codice_idi", ""), key=f"{key_prefix}_idi", placeholder="CHE-000.000.000")
         with col2:
-            risultato["settore"] = st.selectbox("Settore", SETTORI, index=SETTORI.index(d.get("settore","Altro")) if d.get("settore") in SETTORI else len(SETTORI)-1, key=f"{key_prefix}_sett")
+            risultato["settore"] = st.selectbox("Settore", SETTORI,
+                index=SETTORI.index(d.get("settore", "Altro")) if d.get("settore") in SETTORI else len(SETTORI) - 1,
+                key=f"{key_prefix}_sett")
+
         st.markdown("**Persona di contatto**")
         col1, col2 = st.columns(2)
         with col1:
-            risultato["contatto_nome"] = st.text_input("Nome referente", value=d.get("contatto_nome",""), key=f"{key_prefix}_cnome")
-            risultato["contatto_email"] = st.text_input("Email referente", value=d.get("contatto_email",""), key=f"{key_prefix}_cemail")
+            risultato["contatto_nome"] = st.text_input("Nome referente", value=d.get("contatto_nome", ""), key=f"{key_prefix}_cnome")
+            risultato["contatto_email"] = st.text_input("Email referente", value=d.get("contatto_email", ""), key=f"{key_prefix}_cemail")
         with col2:
-            risultato["contatto_cognome"] = st.text_input("Cognome referente", value=d.get("contatto_cognome",""), key=f"{key_prefix}_ccogn")
-            risultato["contatto_telefono"] = st.text_input("Tel referente", value=d.get("contatto_telefono",""), key=f"{key_prefix}_ctel")
-        risultato["contatto_ruolo"] = st.text_input("Ruolo referente", value=d.get("contatto_ruolo",""), key=f"{key_prefix}_cruolo")
+            risultato["contatto_cognome"] = st.text_input("Cognome referente", value=d.get("contatto_cognome", ""), key=f"{key_prefix}_ccogn")
+            risultato["contatto_telefono"] = st.text_input("Tel referente", value=d.get("contatto_telefono", ""), key=f"{key_prefix}_ctel")
+        risultato["contatto_ruolo"] = st.text_input("Ruolo referente", value=d.get("contatto_ruolo", ""), key=f"{key_prefix}_cruolo")
+
     else:
         col1, col2 = st.columns(2)
         with col1:
-            risultato["nome"] = st.text_input("Nome *", value=d.get("nome",""), key=f"{key_prefix}_nome")
-            risultato["codice_fiscale"] = st.text_input("Codice fiscale", value=d.get("codice_fiscale",""), key=f"{key_prefix}_cf")
+            risultato["nome"] = st.text_input("Nome *", value=d.get("nome", ""), key=f"{key_prefix}_nome")
         with col2:
-            risultato["cognome"] = st.text_input("Cognome *", value=d.get("cognome",""), key=f"{key_prefix}_cognome")
-            risultato["data_nascita"] = str(st.date_input("Data nascita", value=None, key=f"{key_prefix}_dn"))
+            risultato["cognome"] = st.text_input("Cognome *", value=d.get("cognome", ""), key=f"{key_prefix}_cognome")
+
+        # Data nascita come testo libero in formato DD/MM/YYYY
+        risultato["data_nascita"] = st.text_input(
+            "Data di nascita (DD/MM/YYYY)",
+            value=d.get("data_nascita", ""),
+            placeholder="01/01/1980",
+            key=f"{key_prefix}_dn"
+        )
 
     st.markdown("**Recapiti**")
     col1, col2 = st.columns(2)
     with col1:
-        risultato["email"] = st.text_input("Email", value=d.get("email",""), key=f"{key_prefix}_email")
-        risultato["indirizzo"] = st.text_input("Indirizzo", value=d.get("indirizzo",""), key=f"{key_prefix}_ind")
-        risultato["cap"] = st.text_input("CAP", value=d.get("cap",""), key=f"{key_prefix}_cap")
+        risultato["email"] = st.text_input("Email", value=d.get("email", ""), key=f"{key_prefix}_email")
+        risultato["indirizzo"] = st.text_input("Indirizzo", value=d.get("indirizzo", ""), key=f"{key_prefix}_ind")
+        risultato["cap"] = st.text_input("CAP", value=d.get("cap", ""), key=f"{key_prefix}_cap")
     with col2:
-        risultato["telefono"] = st.text_input("Telefono", value=d.get("telefono",""), key=f"{key_prefix}_tel")
-        risultato["citta"] = st.text_input("Città", value=d.get("citta",""), key=f"{key_prefix}_citta")
-        risultato["paese"] = st.selectbox("Paese", PAESI, index=PAESI.index(d.get("paese","Italia")) if d.get("paese") in PAESI else 0, key=f"{key_prefix}_paese")
+        risultato["telefono"] = st.text_input("Telefono", value=d.get("telefono", ""), key=f"{key_prefix}_tel")
+        risultato["citta"] = st.text_input("Citta", value=d.get("citta", ""), key=f"{key_prefix}_citta")
+        idx_paese = PAESI.index(d.get("paese", "Svizzera")) if d.get("paese") in PAESI else PAESI.index("Svizzera")
+        risultato["paese"] = st.selectbox("Paese", PAESI, index=idx_paese, key=f"{key_prefix}_paese")
 
-    risultato["stato"] = st.selectbox("Stato cliente", STATI, index=STATI.index(d.get("stato","prospect")) if d.get("stato") in STATI else 0, key=f"{key_prefix}_stato")
-    risultato["note"] = st.text_area("Note", value=d.get("note",""), key=f"{key_prefix}_note")
+    risultato["stato"] = st.selectbox("Stato cliente", STATI,
+        index=STATI.index(d.get("stato", "prospect")) if d.get("stato") in STATI else 0,
+        key=f"{key_prefix}_stato")
+    risultato["note"] = st.text_area("Note", value=d.get("note", ""), key=f"{key_prefix}_note")
 
     utenti = lista_utenti()
     if utenti:
@@ -165,10 +199,10 @@ def _form_nuovo_cliente(utente):
         if dati["tipo"] == "fisica" and not dati.get("cognome"):
             errori.append("Cognome")
         if errori:
-            st.error(f"Campi obbligatori: {', '.join(errori)}")
+            st.error(f"Campi obbligatori mancanti: {', '.join(errori)}")
         else:
             crea_cliente(dati, utente["id"])
-            st.success("Cliente creato!")
+            st.success("Cliente creato.")
             st.rerun()
 
 def _form_modifica_cliente(c, utente):
@@ -177,13 +211,13 @@ def _form_modifica_cliente(c, utente):
         dati = _form_cliente(dati_default=c, key_prefix=f"edit_{c['id']}")
         col1, col2 = st.columns(2)
         with col1:
-            salva = st.form_submit_button("💾 Salva", use_container_width=True)
+            salva = st.form_submit_button("Salva", use_container_width=True)
         with col2:
             annulla = st.form_submit_button("Annulla", use_container_width=True)
     if salva:
         aggiorna_cliente(c["id"], dati)
         st.session_state[f"edit_{c['id']}"] = False
-        st.success("Cliente aggiornato!")
+        st.success("Cliente aggiornato.")
         st.rerun()
     if annulla:
         st.session_state[f"edit_{c['id']}"] = False
