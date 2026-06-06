@@ -298,9 +298,14 @@ if not utente:
 non_letti = lista_messaggi_non_letti(utente["id"])
 n_non_letti = len(non_letti)
 
-# ── NOTIFICHE TOAST GLOBALI ────────────────────────────────────────────────
+# Al primo caricamento dopo login, segna tutti i messaggi esistenti
+# come già visti — i toast appaiono solo per i nuovi che arrivano dopo
+if "msg_notificati" not in st.session_state:
+    st.session_state.msg_notificati = {m["id"] for m in non_letti}
+
+# ── NOTIFICHE TOAST — solo per messaggi arrivati durante la sessione ───────
 if not st.session_state.get("notifiche_disattivate", False):
-    gia_notificati = st.session_state.get("msg_notificati", set())
+    gia_notificati = st.session_state.msg_notificati
     nuovi_toast = [m for m in non_letti if m["id"] not in gia_notificati]
     if nuovi_toast:
         for m in nuovi_toast:
@@ -310,7 +315,6 @@ if not st.session_state.get("notifiche_disattivate", False):
             st.toast(f"Nuovo messaggio da {nome_mitt}: {oggetto}", icon="✉")
             gia_notificati.add(m["id"])
         st.session_state.msg_notificati = gia_notificati
-
 # ── SIDEBAR ────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
