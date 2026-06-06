@@ -35,27 +35,19 @@ def get_profilo_utente(user_id):
 
 # ── CONDIVISIONI TEMPLATE ─────────────────────────────
 
-def _lista_template(utente):
-    templates = lista_template(utente["id"])
-    st.write(f"DEBUG templates: {templates}")
-    
-    if not templates:
-        st.info("Nessun template disponibile. Creane uno dalla scheda accanto.")
-        return
+def lista_template(user_id):
+    sb = get_sb()
+    try:
+        res = sb.table("template_offerte").select("*").eq(
+            "created_by", user_id
+        ).execute()
+        print(f"LISTA_TEMPLATE: {len(res.data or [])} risultati per {user_id}")
+        return res.data or []
+    except Exception as e:
+        print(f"LISTA_TEMPLATE ERRORE: {e}")
+        return []
 
-    miei = [t for t in templates if t.get("created_by") == utente["id"]]
-    condivisi = [t for t in templates if t.get("created_by") != utente["id"]]
 
-    if miei:
-        st.markdown("**I tuoi template**")
-        for t in miei:
-            _scheda_template(t, utente, is_owner=True)
-
-    if condivisi:
-        st.markdown("---")
-        st.markdown("**Template condivisi con te**")
-        for t in condivisi:
-            _scheda_template(t, utente, is_owner=False)
 def get_condivisioni_template(template_id):
     """Chi ha accesso a questo template."""
     sb = get_sb()
