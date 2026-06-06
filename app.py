@@ -340,6 +340,13 @@ with st.sidebar:
                 st.session_state.cliente_nome = None
             st.rerun()
 
+    # Toggle notifiche — prima del bottone Esci
+    notifiche_on = not st.session_state.get("notifiche_disattivate", False)
+    label_notifiche = "Notifiche: ON" if notifiche_on else "Notifiche: OFF"
+    if st.button(label_notifiche, key="toggle_notifiche", use_container_width=True):
+        st.session_state.notifiche_disattivate = notifiche_on
+        st.rerun()
+
     st.markdown("<hr style='border-color:#2a2a4a;margin:16px 0;'>", unsafe_allow_html=True)
     if st.button("Esci", key="nav_logout", use_container_width=True):
         do_logout()
