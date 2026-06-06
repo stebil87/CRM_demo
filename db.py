@@ -13,6 +13,56 @@ def get_sb():
     service_key = st.secrets["SUPABASE_SERVICE_KEY"]
     return create_client(url, service_key)
 
+# ── TEMPLATE OFFERTE ──────────────────────────────────
+
+def lista_template(user_id):
+    """Restituisce i template dell'utente + quelli condivisi da altri."""
+    sb = get_sb()
+    try:
+        res = sb.table("template_offerte").select(
+            "*, creatore:utenti!template_offerte_created_by_fkey(nome, cognome)"
+        ).or_(
+            f"created_by.eq.{user_id},condiviso.eq.true"
+        ).order("created_at", desc=True).execute()
+        return res.data or []
+    except:
+        return []
+
+def get_template(template_id):
+    sb = get_sb()
+    try:
+        res = sb.table("template_offerte").select("*").eq("id", template_id).execute()
+        if res.data and len(res.data) > 0:
+            return res.data[0]
+        return None
+    except:
+        return None
+
+def crea_template(dati, user_id):
+    sb = get_sb()
+    try:
+        dati["created_by"] = user_id
+        res = sb.table("template_offerte").insert(dati).execute()
+        return res.data[0] if res.data else None
+    except Exception as e:
+        return None
+
+def aggiorna_template(template_id, dati):
+    sb = get_sb()
+    try:
+        from datetime import datetime
+        dati["updated_at"] = datetime.utcnow().isoformat()
+        sb.table("template_offerte").update(dati).eq("id", template_id).execute()
+    except:
+        pass
+
+def elimina_template(template_id):
+    sb = get_sb()
+    try:
+        sb.table("template_offerte").delete().eq("id", template_id).execute()
+    except:
+        pass
+
 # ── AUTH ──────────────────────────────────────────────
 
 def get_profilo_utente(user_id):
