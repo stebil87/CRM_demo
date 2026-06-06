@@ -4,7 +4,9 @@ from db import (
     lista_template, get_template, crea_template,
     aggiorna_template, elimina_template,
     get_condivisioni_template, condividi_template,
-    rimuovi_condivisione_template, lista_utenti
+    rimuovi_condivisione_template, lista_utenti)
+
+
 def pagina_template(utente):
     st.title("Template offerte")
     st.markdown("---")
