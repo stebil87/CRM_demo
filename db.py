@@ -41,23 +41,16 @@ def lista_template(user_id):
         res = sb.table("template_offerte").select(
             "*, creatore:utenti!template_offerte_created_by_fkey(nome, cognome)"
         ).eq("created_by", user_id).order("created_at", desc=True).execute()
+        
+        print(f"DEBUG lista_template user_id: {user_id}")
+        print(f"DEBUG lista_template res.data: {res.data}")
+        
         miei = res.data or []
-
-        res_cond = sb.table("template_condivisioni").select(
-            "template_id"
-        ).eq("utente_id", user_id).execute()
-        ids_condivisi = [r["template_id"] for r in (res_cond.data or [])]
-
-        condivisi = []
-        if ids_condivisi:
-            res_c = sb.table("template_offerte").select(
-                "*, creatore:utenti!template_offerte_created_by_fkey(nome, cognome)"
-            ).in_("id", ids_condivisi).execute()
-            condivisi = res_c.data or []
-
-        return miei + condivisi
+        return miei
     except Exception as e:
+        print(f"DEBUG lista_template ERRORE: {e}")
         return []
+        
 def get_condivisioni_template(template_id):
     """Chi ha accesso a questo template."""
     sb = get_sb()
