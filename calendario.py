@@ -24,6 +24,7 @@ MESI_IT = [
 ]
 GIORNI_IT = ["Lun","Mar","Mer","Gio","Ven","Sab","Dom"]
 
+
 def pagina_calendario(utente):
     st.title("Calendario")
     st.markdown("---")
@@ -38,7 +39,6 @@ def pagina_calendario(utente):
     anno = st.session_state.cal_anno
     mese = st.session_state.cal_mese
 
-    # Calendari accessibili
     ids_visibili = get_calendari_visibili(utente["id"])
     ids_modificabili = get_calendari_modificabili(utente["id"])
 
@@ -58,8 +58,8 @@ def pagina_calendario(utente):
         with tab_list[2]:
             _gestione_autorizzazioni(utente)
 
+
 def _vista_calendario(utente, anno, mese, ids_visibili, ids_modificabili):
-    # Navigazione mese
     col1, col2, col3 = st.columns([1, 4, 1])
     with col1:
         if st.button("Mese precedente", use_container_width=True):
@@ -72,8 +72,7 @@ def _vista_calendario(utente, anno, mese, ids_visibili, ids_modificabili):
             st.rerun()
     with col2:
         st.markdown(
-            f"<h2 style='text-align:center;margin:0;'>"
-            f"{MESI_IT[mese-1]} {anno}</h2>",
+            f"<h2 style='text-align:center;margin:0;'>{MESI_IT[mese-1]} {anno}</h2>",
             unsafe_allow_html=True
         )
     with col3:
@@ -106,14 +105,12 @@ def _vista_calendario(utente, anno, mese, ids_visibili, ids_modificabili):
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Carica eventi
     eventi = eventi_del_mese_multi(anno, mese, ids_visibili)
 
-    # Mappa eventi per giorno
     eventi_per_giorno = {}
     for e in eventi:
         try:
-            d = datetime.fromisoformat(e["data_inizio"].replace("Z","")).date()
+            d = datetime.fromisoformat(e["data_inizio"].replace("Z", "")).date()
             g = d.day
             if g not in eventi_per_giorno:
                 eventi_per_giorno[g] = []
@@ -123,6 +120,7 @@ def _vista_calendario(utente, anno, mese, ids_visibili, ids_modificabili):
 
     cal_matrix = calendar.monthcalendar(anno, mese)
     oggi = date.today()
+    giorno_selezionato = st.session_state.get("cal_giorno_sel")
 
     # Header giorni
     cols = st.columns(7)
@@ -135,8 +133,6 @@ def _vista_calendario(utente, anno, mese, ids_visibili, ids_modificabili):
         )
 
     # Griglia
-    giorno_selezionato = st.session_state.get("cal_giorno_sel")
-
     for settimana in cal_matrix:
         cols = st.columns(7)
         for i, giorno in enumerate(settimana):
@@ -157,43 +153,44 @@ def _vista_calendario(utente, anno, mese, ids_visibili, ids_modificabili):
                     ev_giorno = eventi_per_giorno.get(giorno, [])
                     ev_html = ""
                     for ev in ev_giorno[:3]:
-                        colore = COLORI.get(ev.get("tipo","altro"), "#1a1a2e")
+                        colore = COLORI.get(ev.get("tipo", "altro"), "#1a1a2e")
                         titolo_corto = ev["titolo"][:16] + "…" if len(ev["titolo"]) > 16 else ev["titolo"]
                         try:
                             ora = datetime.fromisoformat(
-                                ev["data_inizio"].replace("Z","")
+                                ev["data_inizio"].replace("Z", "")
                             ).strftime("%H:%M") + " "
                         except:
                             ora = ""
                         propr = ev.get("proprietario") or {}
                         iniziali = (
-                            propr.get("nome","")[:1] + propr.get("cognome","")[:1]
+                            propr.get("nome", "")[:1] + propr.get("cognome", "")[:1]
                         ).upper()
                         ev_html += (
-                            f"<div style='background:{colore};color:white;"
-                            f"font-size:9px;border-radius:3px;padding:2px 5px;"
-                            f"margin-top:2px;overflow:hidden;white-space:nowrap;"
-                            f"text-overflow:ellipsis;display:flex;justify-content:space-between;'>"
-                            f"<span>{ora}{titolo_corto}</span>"
-                            f"<span style='opacity:0.7;margin-left:3px;'>{iniziali}</span>"
-                            f"</div>"
+                            "<div style='background:" + colore + ";color:white;"
+                            "font-size:9px;border-radius:3px;padding:2px 5px;"
+                            "margin-top:2px;overflow:hidden;white-space:nowrap;"
+                            "text-overflow:ellipsis;display:flex;justify-content:space-between;'>"
+                            "<span>" + ora + titolo_corto + "</span>"
+                            "<span style='opacity:0.7;margin-left:3px;'>" + iniziali + "</span>"
+                            "</div>"
                         )
                     if len(ev_giorno) > 3:
                         ev_html += (
-                            f"<div style='font-size:9px;color:#888;margin-top:2px;'>"
-                            f"+{len(ev_giorno)-3} altri</div>"
+                            "<div style='font-size:9px;color:#888;margin-top:2px;'>"
+                            "+" + str(len(ev_giorno) - 3) + " altri</div>"
                         )
 
                     st.markdown(
-                        f"<div style='min-height:80px;border:1px solid {border_color};"
-                        f"border-radius:6px;background:{bg_color};padding:6px 8px;'>"
-                        f"<div style='font-size:12px;{num_style}'>{giorno}</div>"
-                        f"{ev_html}</div>",
+                        "<div style='min-height:80px;border:1px solid " + border_color + ";"
+                        "border-radius:6px;background:" + bg_color + ";padding:6px 8px;'>"
+                        "<div style='font-size:12px;" + num_style + "'>" + str(giorno) + "</div>"
+                        + ev_html + "</div>",
                         unsafe_allow_html=True
                     )
 
+                    label_btn = "Chiudi" if e_sel else "Apri"
                     if st.button(
-                        f"{'Chiudi' if e_sel else 'Apri'}",
+                        label_btn,
                         key=f"cal_g_{anno}_{mese}_{giorno}",
                         use_container_width=True
                     ):
@@ -214,7 +211,6 @@ def _vista_calendario(utente, anno, mese, ids_visibili, ids_modificabili):
         )
 
         ev_giorno_sel = eventi_per_giorno.get(giorno_selezionato, [])
-
         col_lista, col_form = st.columns([1, 1])
 
         with col_lista:
@@ -225,29 +221,31 @@ def _vista_calendario(utente, anno, mese, ids_visibili, ids_modificabili):
                 for e in ev_giorno_sel:
                     try:
                         ora = datetime.fromisoformat(
-                            e["data_inizio"].replace("Z","")
+                            e["data_inizio"].replace("Z", "")
                         ).strftime("%H:%M")
                     except:
                         ora = ""
-                    colore = COLORI.get(e.get("tipo","altro"), "#1a1a2e")
+                    colore = COLORI.get(e.get("tipo", "altro"), "#1a1a2e")
                     propr = e.get("proprietario") or {}
                     nome_propr = f"{propr.get('nome','')} {propr.get('cognome','')}".strip()
                     puo_mod = e.get("proprietario_id") in ids_modificabili
+                    desc_html = (
+                        "<div style='font-size:11px;color:#555;margin-top:4px;'>"
+                        + e["descrizione"] + "</div>"
+                    ) if e.get("descrizione") else ""
+                    luogo_html = " · " + e["luogo"] if e.get("luogo") else ""
 
-                desc_html = f"<div style='font-size:11px;color:#555;margin-top:4px;'>{e['descrizione']}</div>" if e.get('descrizione') else ''
-                st.markdown(
-                    f"<div style='background:white;border:1px solid #eaeaf0;"
-                    f"border-left:4px solid {colore};border-radius:8px;"
-                    f"padding:12px 14px;margin-bottom:8px;'>"
-                    f"<div style='font-size:13px;font-weight:600;'>"
-                    f"{ora}  {e['titolo']}</div>"
-                    f"<div style='font-size:11px;color:#888;margin-top:4px;'>"
-                    f"{e.get('tipo','').upper()}"
-                    f"{' · ' + e['luogo'] if e.get('luogo') else ''}"
-                    f" · {nome_propr}</div>"
-                    f"{desc_html}"
-                    f"</div>",
-                    unsafe_allow_html=True
+                    st.markdown(
+                        "<div style='background:white;border:1px solid #eaeaf0;"
+                        "border-left:4px solid " + colore + ";border-radius:8px;"
+                        "padding:12px 14px;margin-bottom:8px;'>"
+                        "<div style='font-size:13px;font-weight:600;'>"
+                        + ora + "  " + e["titolo"] + "</div>"
+                        "<div style='font-size:11px;color:#888;margin-top:4px;'>"
+                        + e.get("tipo", "").upper() + luogo_html + " · " + nome_propr + "</div>"
+                        + desc_html +
+                        "</div>",
+                        unsafe_allow_html=True
                     )
 
                     if puo_mod:
@@ -277,23 +275,63 @@ def _vista_calendario(utente, anno, mese, ids_visibili, ids_modificabili):
             st.markdown("**Nuovo evento in questo giorno**")
             _form_evento_rapido(utente, data_sel, ids_modificabili)
 
+    # Lista eventi del mese
+    st.markdown("---")
+    st.markdown("**Eventi del mese**")
+    eventi_tutti = eventi_del_mese_multi(anno, mese, ids_visibili)
+    if not eventi_tutti:
+        st.info("Nessun evento questo mese.")
+    else:
+        eventi_ordinati = sorted(eventi_tutti, key=lambda x: x.get("data_inizio", ""))
+        for e in eventi_ordinati:
+            colore = COLORI.get(e.get("tipo", "altro"), "#1a1a2e")
+            try:
+                dt_inizio = datetime.fromisoformat(e["data_inizio"].replace("Z", ""))
+                data_str = dt_inizio.strftime("%d/%m/%Y %H:%M")
+            except:
+                data_str = e.get("data_inizio", "")[:16]
+            propr = e.get("proprietario") or {}
+            nome_propr = f"{propr.get('nome','')} {propr.get('cognome','')}".strip()
+
+            with st.expander(data_str + "   |   " + e["titolo"] + "   |   " + e.get("tipo", "").upper()):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown(f"**Tipo:** {e.get('tipo','—')}")
+                    st.markdown(f"**Inizio:** {data_str}")
+                    if e.get("data_fine"):
+                        try:
+                            dt_fine = datetime.fromisoformat(e["data_fine"].replace("Z", ""))
+                            st.markdown(f"**Fine:** {dt_fine.strftime('%d/%m/%Y %H:%M')}")
+                        except:
+                            pass
+                    if e.get("luogo"):
+                        st.markdown(f"**Luogo:** {e['luogo']}")
+                with col2:
+                    st.markdown(f"**Calendario di:** {nome_propr}")
+                    if e.get("descrizione"):
+                        st.markdown(f"**Note:** {e['descrizione']}")
+
+
 def _form_evento_rapido(utente, data_sel, ids_modificabili):
-    """Form compatto per creare un evento in un giorno specifico."""
     utenti_tutti = lista_utenti()
     utenti_mod = [u for u in utenti_tutti if u["id"] in ids_modificabili]
     opzioni = {f"{u['nome']} {u['cognome']}": u["id"] for u in utenti_mod}
 
+    if not opzioni:
+        st.info("Nessun calendario modificabile disponibile.")
+        return
+
     with st.form(f"form_rapido_{data_sel.isoformat()}"):
-        titolo = st.text_input("Titolo *", key=f"fr_tit_{data_sel}")
-        tipo = st.selectbox("Tipo", TIPI, key=f"fr_tipo_{data_sel}")
+        titolo = st.text_input("Titolo *")
+        tipo = st.selectbox("Tipo", TIPI)
         col1, col2 = st.columns(2)
         with col1:
-            ora_i = st.time_input("Inizio", value=datetime.strptime("09:00","%H:%M").time(), key=f"fr_oi_{data_sel}")
+            ora_i = st.time_input("Inizio", value=datetime.strptime("09:00", "%H:%M").time())
         with col2:
-            ora_f = st.time_input("Fine", value=datetime.strptime("10:00","%H:%M").time(), key=f"fr_of_{data_sel}")
-        luogo = st.text_input("Luogo", key=f"fr_luogo_{data_sel}")
-        desc = st.text_area("Note", height=80, key=f"fr_desc_{data_sel}")
-        cal_di = st.selectbox("Calendario di", list(opzioni.keys()), key=f"fr_cal_{data_sel}")
+            ora_f = st.time_input("Fine", value=datetime.strptime("10:00", "%H:%M").time())
+        luogo = st.text_input("Luogo")
+        desc = st.text_area("Note", height=80)
+        cal_di = st.selectbox("Calendario di", list(opzioni.keys()))
         submitted = st.form_submit_button("Crea evento", use_container_width=True)
 
     if submitted:
@@ -317,29 +355,32 @@ def _form_evento_rapido(utente, data_sel, ids_modificabili):
             st.success("Evento creato.")
             st.rerun()
 
+
 def _form_modifica_evento_inline(e, utente, ids_modificabili):
     utenti_tutti = lista_utenti()
     utenti_mod = [u for u in utenti_tutti if u["id"] in ids_modificabili]
     opzioni = {f"{u['nome']} {u['cognome']}": u["id"] for u in utenti_mod}
 
     try:
-        dt_i = datetime.fromisoformat(e["data_inizio"].replace("Z",""))
-        dt_f = datetime.fromisoformat(e["data_fine"].replace("Z","")) if e.get("data_fine") else dt_i
+        dt_i = datetime.fromisoformat(e["data_inizio"].replace("Z", ""))
+        dt_f = datetime.fromisoformat(e["data_fine"].replace("Z", "")) if e.get("data_fine") else dt_i
     except:
         dt_i = datetime.now()
         dt_f = datetime.now()
 
     with st.form(f"form_edit_inline_{e['id']}"):
         titolo = st.text_input("Titolo *", value=e["titolo"])
-        tipo = st.selectbox("Tipo", TIPI,
-            index=TIPI.index(e.get("tipo","appuntamento")) if e.get("tipo") in TIPI else 0)
+        tipo = st.selectbox(
+            "Tipo", TIPI,
+            index=TIPI.index(e.get("tipo", "appuntamento")) if e.get("tipo") in TIPI else 0
+        )
         col1, col2 = st.columns(2)
         with col1:
             ora_i = st.time_input("Inizio", value=dt_i.time())
         with col2:
             ora_f = st.time_input("Fine", value=dt_f.time())
-        luogo = st.text_input("Luogo", value=e.get("luogo",""))
-        desc = st.text_area("Note", value=e.get("descrizione",""), height=80)
+        luogo = st.text_input("Luogo", value=e.get("luogo", ""))
+        desc = st.text_area("Note", value=e.get("descrizione", ""), height=80)
 
         default_propr = 0
         if e.get("proprietario_id"):
@@ -372,12 +413,17 @@ def _form_modifica_evento_inline(e, utente, ids_modificabili):
         st.session_state[f"edit_ev_{e['id']}"] = False
         st.rerun()
 
+
 def _form_nuovo_evento(utente, ids_modificabili):
     st.subheader("Nuovo evento")
     utenti_tutti = lista_utenti()
     utenti_mod = [u for u in utenti_tutti if u["id"] in ids_modificabili]
     opzioni = {f"{u['nome']} {u['cognome']}": u["id"] for u in utenti_mod}
     opzioni_tutti = {f"{u['nome']} {u['cognome']}": u["id"] for u in utenti_tutti}
+
+    if not opzioni:
+        st.info("Nessun calendario modificabile disponibile.")
+        return
 
     with st.form("form_nuovo_evento"):
         col1, col2 = st.columns(2)
@@ -390,11 +436,11 @@ def _form_nuovo_evento(utente, ids_modificabili):
             tutto_il_giorno = st.checkbox("Tutto il giorno")
             data = st.date_input("Data *", value=date.today())
             if not tutto_il_giorno:
-                ora_i = st.time_input("Ora inizio", value=datetime.strptime("09:00","%H:%M").time())
-                ora_f = st.time_input("Ora fine", value=datetime.strptime("10:00","%H:%M").time())
+                ora_i = st.time_input("Ora inizio", value=datetime.strptime("09:00", "%H:%M").time())
+                ora_f = st.time_input("Ora fine", value=datetime.strptime("10:00", "%H:%M").time())
             else:
-                ora_i = datetime.strptime("00:00","%H:%M").time()
-                ora_f = datetime.strptime("23:59","%H:%M").time()
+                ora_i = datetime.strptime("00:00", "%H:%M").time()
+                ora_f = datetime.strptime("23:59", "%H:%M").time()
         desc = st.text_area("Note")
         partecipanti_sel = st.multiselect("Partecipanti", list(opzioni_tutti.keys()))
         submitted = st.form_submit_button("Crea evento", use_container_width=True)
@@ -418,22 +464,22 @@ def _form_nuovo_evento(utente, ids_modificabili):
             st.success("Evento creato.")
             st.rerun()
 
+
 def _gestione_autorizzazioni(utente):
     st.subheader("Gestione autorizzazioni calendario")
-    st.markdown("Definisci chi può vedere o modificare il calendario di ogni utente.")
+    st.markdown("Definisci chi puo vedere o modificare il calendario di ogni utente.")
     st.markdown("---")
 
     utenti = lista_utenti()
 
     for proprietario in utenti:
         nome_propr = f"{proprietario['nome']} {proprietario['cognome']}"
-        with st.expander(f"Calendario di {nome_propr}"):
+        with st.expander("Calendario di " + nome_propr):
             altri = [u for u in utenti if u["id"] != proprietario["id"]]
             if not altri:
                 st.info("Nessun altro utente.")
                 continue
 
-            # Carica autorizzazioni esistenti per questo calendario
             sb_res = _carica_autorizzazioni_per_calendario(proprietario["id"])
             auth_map = {a["utente_id"]: a for a in sb_res}
 
@@ -443,7 +489,7 @@ def _gestione_autorizzazioni(utente):
 
                 col1, col2, col3 = st.columns([3, 2, 2])
                 col1.markdown(
-                    f"<span style='font-size:13px;'>{nome_u}</span>",
+                    "<span style='font-size:13px;'>" + nome_u + "</span>",
                     unsafe_allow_html=True
                 )
                 with col2:
@@ -467,8 +513,9 @@ def _gestione_autorizzazioni(utente):
                             u["id"], proprietario["id"],
                             vede, modifica
                         )
-                    st.success(f"Autorizzazione aggiornata per {nome_u}.")
+                    st.success("Autorizzazione aggiornata per " + nome_u + ".")
                     st.rerun()
+
 
 def _carica_autorizzazioni_per_calendario(calendario_di_id):
     from db import get_sb
