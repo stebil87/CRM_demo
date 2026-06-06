@@ -6,6 +6,8 @@ from diario import pagina_diario
 from offerte import pagina_offerte
 from documenti import pagina_documenti
 from admin import pagina_admin
+from messaggi import pagina_messaggi
+from db import lista_messaggi_non_letti
 
 st.set_page_config(
     page_title="1908 Group — CRM",
@@ -28,32 +30,7 @@ html, body, [class*="css"] {
 footer { display: none !important; }
 #MainMenu { visibility: hidden; }
 
-/* ── LOGIN PAGE ── */
-.login-wrapper {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #f7f7fa;
-}
-.login-box {
-    background: white;
-    border-radius: 16px;
-    padding: 48px 44px 40px 44px;
-    box-shadow: 0 2px 32px rgba(26,26,46,0.10);
-    width: 100%;
-    max-width: 380px;
-}
-.login-logo {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 32px;
-}
-.login-divider {
-    height: 1px;
-    background: #eaeaf0;
-    margin: 24px 0;
-}
+/* ── LOGIN ── */
 .login-label {
     font-size: 11px;
     font-weight: 700;
@@ -114,8 +91,16 @@ h1 {
     letter-spacing: -0.3px;
     margin-bottom: 4px !important;
 }
-h2 { font-size: 16px !important; font-weight: 600 !important; color: #1a1a2e !important; }
-h3 { font-size: 14px !important; font-weight: 600 !important; color: #1a1a2e !important; }
+h2 {
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    color: #1a1a2e !important;
+}
+h3 {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: #1a1a2e !important;
+}
 
 .stButton > button {
     background: #1a1a2e;
@@ -125,6 +110,7 @@ h3 { font-size: 14px !important; font-weight: 600 !important; color: #1a1a2e !im
     padding: 8px 20px;
     font-size: 13px;
     font-weight: 500;
+    letter-spacing: 0.2px;
     transition: all 0.2s ease;
     box-shadow: 0 1px 3px rgba(0,0,0,0.15);
 }
@@ -138,13 +124,19 @@ h3 { font-size: 14px !important; font-weight: 600 !important; color: #1a1a2e !im
     color: #1a1a2e !important;
     border: 1px solid #dddde8;
 }
+.stButton > button[kind="secondary"]:hover {
+    background: #eaeaf4 !important;
+}
 
 .stTextInput > div > div > input,
-.stTextArea > div > div > textarea {
+.stTextArea > div > div > textarea,
+.stSelectbox > div > div {
     border: 1px solid #dddde8;
     border-radius: 6px;
     font-size: 13px;
+    color: #1a1a2e;
     background: #fafafa;
+    transition: border 0.2s;
 }
 .stTextInput > div > div > input:focus,
 .stTextArea > div > div > textarea:focus {
@@ -182,6 +174,9 @@ h3 { font-size: 14px !important; font-weight: 600 !important; color: #1a1a2e !im
     color: #1a1a2e;
     padding: 12px 16px;
 }
+.streamlit-expanderHeader:hover {
+    background: #f0f0f8;
+}
 .streamlit-expanderContent {
     border: 1px solid #eaeaf0;
     border-top: none;
@@ -193,6 +188,7 @@ h3 { font-size: 14px !important; font-weight: 600 !important; color: #1a1a2e !im
 .stTabs [data-baseweb="tab-list"] {
     gap: 0;
     border-bottom: 2px solid #eaeaf0;
+    background: transparent;
 }
 .stTabs [data-baseweb="tab"] {
     font-size: 13px;
@@ -208,8 +204,31 @@ h3 { font-size: 14px !important; font-weight: 600 !important; color: #1a1a2e !im
     font-weight: 600;
 }
 
-hr { border: none; border-top: 1px solid #eaeaf0; margin: 16px 0; }
-.stAlert { border-radius: 8px; font-size: 13px; }
+hr {
+    border: none;
+    border-top: 1px solid #eaeaf0;
+    margin: 16px 0;
+}
+
+.stAlert {
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.stForm [data-testid="stFormSubmitButton"] > button {
+    background: #1a1a2e;
+    color: white !important;
+    font-weight: 600;
+    padding: 10px 28px;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.stDataFrame {
+    border: 1px solid #eaeaf0;
+    border-radius: 8px;
+    overflow: hidden;
+}
 
 .sidebar-user {
     background: rgba(255,255,255,0.06);
@@ -225,17 +244,29 @@ hr { border: none; border-top: 1px solid #eaeaf0; margin: 16px 0; }
     color: #666888 !important;
     padding: 14px 16px 6px 16px;
 }
+.badge-msg {
+    background: #e94560;
+    color: white !important;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-left: 6px;
+}
 </style>
 """, unsafe_allow_html=True)
 
+# Session state defaults
 for k, v in {
     "pagina": "dashboard",
     "cliente_id": None,
     "cliente_nome": None,
+    "reply_to": None,
 }.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
+# Auth check
 utente = check_auth()
 
 # ── LOGIN ──────────────────────────────────────────────────────────────────
@@ -243,23 +274,25 @@ if not utente:
     _, col, _ = st.columns([1, 1, 1])
     with col:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
-
-        # Logo centrato
         try:
             logo_col1, logo_col2, logo_col3 = st.columns([1, 2, 1])
             with logo_col2:
                 st.image("1908_Group_Black.png", use_container_width=True)
         except:
-            st.markdown("<h2 style='text-align:center;color:#1a1a2e;'>1908 Group SA</h2>", unsafe_allow_html=True)
-
+            st.markdown("<h2 style='text-align:center;color:#1a1a2e;'>1908 Group SA</h2>",
+                        unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("<p class='login-label'>Accesso riservato</p>", unsafe_allow_html=True)
-
         pagina_login()
-
-        st.markdown("<p class='login-footer'>1908 Group SA &nbsp;·&nbsp; Piattaforma CRM &nbsp;·&nbsp; Uso riservato</p>", unsafe_allow_html=True)
-
+        st.markdown(
+            "<p class='login-footer'>1908 Group SA &nbsp;·&nbsp; Piattaforma CRM &nbsp;·&nbsp; Uso riservato</p>",
+            unsafe_allow_html=True
+        )
     st.stop()
+
+# ── MESSAGGI NON LETTI ─────────────────────────────────────────────────────
+non_letti = lista_messaggi_non_letti(utente["id"])
+n_non_letti = len(non_letti)
 
 # ── SIDEBAR ────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -273,11 +306,16 @@ with st.sidebar:
 
     st.markdown(f"""
     <div class="sidebar-user">
-        <div style="font-size:13px;font-weight:600;color:#ffffff !important;">{utente['nome']} {utente['cognome']}</div>
-        <div style="font-size:11px;color:#9999bb !important;margin-top:3px;">{utente['email']}</div>
+        <div style="font-size:13px;font-weight:600;color:#ffffff !important;">
+            {utente['nome']} {utente['cognome']}
+        </div>
+        <div style="font-size:11px;color:#9999bb !important;margin-top:3px;">
+            {utente['email']}
+        </div>
         <div style="margin-top:8px;">
-            <span style="background:#2a2a4a;color:#aaaacc !important;font-size:10px;font-weight:600;
-            text-transform:uppercase;letter-spacing:0.8px;padding:3px 8px;border-radius:4px;">
+            <span style="background:#2a2a4a;color:#aaaacc !important;font-size:10px;
+            font-weight:600;text-transform:uppercase;letter-spacing:0.8px;
+            padding:3px 8px;border-radius:4px;">
             {utente['ruolo']}</span>
         </div>
     </div>
@@ -289,6 +327,7 @@ with st.sidebar:
         ("dashboard", "Dashboard"),
         ("clienti", "Clienti"),
         ("offerte_all", "Offerte"),
+        ("messaggi", f"Messaggi{'  (' + str(n_non_letti) + ')' if n_non_letti > 0 else ''}"),
     ]
     if is_admin(utente):
         nav_items.append(("admin", "Amministrazione"))
@@ -314,10 +353,15 @@ breadcrumb_map = {
     "offerte": f"Clienti  /  {st.session_state.cliente_nome or ''}  /  Offerte",
     "offerte_all": "Offerte",
     "documenti": f"Clienti  /  {st.session_state.cliente_nome or ''}  /  Documenti",
+    "messaggi": "Messaggi",
     "admin": "Amministrazione",
 }
 breadcrumb = breadcrumb_map.get(p, "")
-st.markdown(f"<p style='font-size:11px;color:#aaa;letter-spacing:0.5px;margin-bottom:4px;text-transform:uppercase;'>{breadcrumb}</p>", unsafe_allow_html=True)
+st.markdown(
+    f"<p style='font-size:11px;color:#aaa;letter-spacing:0.5px;margin-bottom:4px;"
+    f"text-transform:uppercase;'>{breadcrumb}</p>",
+    unsafe_allow_html=True
+)
 
 # ── ROUTING ────────────────────────────────────────────────────────────────
 if p == "dashboard":
@@ -330,5 +374,7 @@ elif p in ("offerte", "offerte_all"):
     pagina_offerte(utente, st.session_state.cliente_id, st.session_state.cliente_nome)
 elif p == "documenti":
     pagina_documenti(utente, st.session_state.cliente_id, st.session_state.cliente_nome)
+elif p == "messaggi":
+    pagina_messaggi(utente)
 elif p == "admin":
     pagina_admin(utente)
