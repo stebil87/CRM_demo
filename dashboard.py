@@ -101,6 +101,84 @@ def _saluto(utente):
     )
 
 
+def _widget_messaggi(utente):
+    """Sezione fissa messaggi non letti — sempre visibile in dashboard."""
+    non_letti = lista_messaggi_non_letti(utente["id"])
+
+    st.markdown(
+        "<div style='display:flex;align-items:center;"
+        "justify-content:space-between;margin-bottom:12px;'>"
+        "<span style='font-size:13px;font-weight:600;color:#1a1a2e;'>"
+        "Messaggi interni</span>"
+        + (
+            f"<span style='background:#e94560;color:white;font-size:10px;"
+            f"font-weight:700;padding:2px 8px;border-radius:10px;'>"
+            f"{len(non_letti)} non letti</span>"
+            if non_letti else
+            "<span style='font-size:11px;color:#aaa;'>Tutti letti</span>"
+        ) +
+        "</div>",
+        unsafe_allow_html=True
+    )
+
+    if not non_letti:
+        st.markdown(
+            "<div style='background:#f0faf4;border:1px solid #c3e6cb;"
+            "border-radius:8px;padding:12px 16px;font-size:13px;color:#2d6a4f;'>"
+            "Nessun messaggio non letto.</div>",
+            unsafe_allow_html=True
+        )
+        return
+
+    for m in non_letti[:4]:
+        mitt = m.get("mittente") or {}
+        nome_mitt = f"{mitt.get('nome','')} {mitt.get('cognome','')}".strip() or "—"
+        oggetto = m.get("oggetto") or "(nessun oggetto)"
+        try:
+            import pytz
+            tz = pytz.timezone("Europe/Zurich")
+            dt = datetime.fromisoformat(
+                m["created_at"].replace("Z", "+00:00")
+            ).astimezone(tz)
+            data_str = dt.strftime("%d/%m %H:%M")
+        except:
+            data_str = (m.get("created_at") or "")[:16].replace("T", " ")
+
+        st.markdown(
+            "<div style='background:white;border:1px solid #eaeaf0;"
+            "border-left:4px solid #e94560;border-radius:8px;"
+            "padding:10px 14px;margin-bottom:6px;'>"
+            "<div style='display:flex;justify-content:space-between;"
+            "align-items:flex-start;'>"
+            "<div>"
+            f"<div style='font-size:12px;font-weight:700;color:#1a1a2e;'>"
+            f"{oggetto}</div>"
+            f"<div style='font-size:11px;color:#888;margin-top:2px;'>"
+            f"Da: {nome_mitt}</div>"
+            "</div>"
+            f"<div style='font-size:10px;color:#aaa;white-space:nowrap;"
+            f"margin-left:8px;'>{data_str}</div>"
+            "</div>"
+            "</div>",
+            unsafe_allow_html=True
+        )
+
+    if len(non_letti) > 4:
+        st.markdown(
+            f"<div style='font-size:11px;color:#888;margin-bottom:8px;'>"
+            f"e altri {len(non_letti) - 4} messaggi...</div>",
+            unsafe_allow_html=True
+        )
+
+    if st.button(
+        "Vai ai messaggi",
+        key="dash_vai_msg",
+        use_container_width=True
+    ):
+        st.session_state.pagina = "messaggi"
+        st.rerun()
+
+
 def pagina_dashboard(utente):
     st.title("Dashboard")
     _saluto(utente)
@@ -131,45 +209,6 @@ def pagina_dashboard(utente):
     col1.metric("Clienti totali", stats["tot_clienti"])
     col2.metric("Chiuso", f"CHF {valore_chiuso:,.0f}")
     col3.metric("Tasso chiusura", f"{tasso_chiusura}%")
-
-    # ── BANNER MESSAGGI NON LETTI ──
-    non_letti_dash = lista_messaggi_non_letti(utente["id"])
-    if non_letti_dash:
-        st.markdown("<br>", unsafe_allow_html=True)
-        n = len(non_letti_dash)
-        mittenti = []
-        for m in non_letti_dash[:3]:
-            mitt = m.get("mittente") or {}
-            nome_mitt = f"{mitt.get('nome', '')}".strip()
-            if nome_mitt and nome_mitt not in mittenti:
-                mittenti.append(nome_mitt)
-        mittenti_str = ", ".join(mittenti)
-        if len(non_letti_dash) > 3:
-            mittenti_str += " e altri"
-
-        col_msg, col_btn = st.columns([5, 1])
-        with col_msg:
-            st.markdown(
-                f"<div style='background:white;border:1px solid #eaeaf0;"
-                f"border-left:4px solid #e94560;border-radius:8px;"
-                f"padding:12px 18px;display:flex;align-items:center;gap:12px;'>"
-                f"<span style='font-size:20px;'>✉</span>"
-                f"<div>"
-                f"<div style='font-size:13px;font-weight:700;color:#1a1a2e;'>"
-                f"{'Hai' if n == 1 else 'Hai'} {n} "
-                f"{'messaggio non letto' if n == 1 else 'messaggi non letti'}</div>"
-                f"<div style='font-size:11px;color:#888;margin-top:2px;'>"
-                f"Da: {mittenti_str}</div>"
-                f"</div>"
-                f"</div>",
-                unsafe_allow_html=True
-            )
-        with col_btn:
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("Vai ai messaggi", key="dash_vai_msg",
-                         use_container_width=True):
-                st.session_state.pagina = "messaggi"
-                st.rerun()
 
     st.markdown("---")
 
@@ -237,12 +276,15 @@ def pagina_dashboard(utente):
 
     st.markdown("---")
 
-    # ── NOTE + INBOX PLACEHOLDER + AVVISI ──
-    col_note, col_inbox, col_avvisi = st.columns(3)
+    # ── NOTE + MESSAGGI + INBOX + AVVISI ──
+    col_note, col_msg, col_inbox, col_avvisi = st.columns(4)
 
     with col_note:
         from note_dashboard import widget_note
         widget_note(utente)
+
+    with col_msg:
+        _widget_messaggi(utente)
 
     with col_inbox:
         st.markdown("**Email in arrivo**")
