@@ -16,6 +16,61 @@ def get_sb():
     key = st.secrets["SUPABASE_SERVICE_KEY"]
     return create_client(url, key)
 
+# ── INBOX EMAIL CONDIVISA ─────────────────────────────
+
+def lista_inbox_nuove():
+    """Email non ancora prese in carico."""
+    sb = get_sb()
+    try:
+        res = sb.table("inbox_email").select(
+            "*, gestore:utenti!inbox_email_presa_in_carico_da_fkey(nome, cognome)"
+        ).eq("presa_in_carico", False).order(
+            "data_ricezione", desc=True
+        ).execute()
+        return res.data or []
+    except:
+        return []
+
+def lista_inbox_storico():
+    """Email già prese in carico."""
+    sb = get_sb()
+    try:
+        res = sb.table("inbox_email").select(
+            "*, gestore:utenti!inbox_email_presa_in_carico_da_fkey(nome, cognome)"
+        ).eq("presa_in_carico", True).order(
+            "data_ricezione", desc=True
+        ).execute()
+        return res.data or []
+    except:
+        return []
+
+def prendi_in_carico_email(email_id, utente_id):
+    sb = get_sb()
+    try:
+        from datetime import datetime
+        sb.table("inbox_email").update({
+            "presa_in_carico": True,
+            "presa_in_carico_da": utente_id,
+            "presa_in_carico_at": datetime.utcnow().isoformat(),
+            "letta": True
+        }).eq("id", email_id).execute()
+        return None
+    except Exception as e:
+        return str(e)
+
+def inserisci_email_inbox(mittente, oggetto, corpo):
+    """Chiamata dal webhook o manualmente per inserire email ricevute."""
+    sb = get_sb()
+    try:
+        sb.table("inbox_email").insert({
+            "mittente": mittente,
+            "oggetto": oggetto,
+            "corpo": corpo,
+        }).execute()
+        return None
+    except Exception as e:
+        return str(e)
+
 # ── AUTH ──────────────────────────────────────────────
 
 def get_profilo_utente(user_id):
