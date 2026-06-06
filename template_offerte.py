@@ -202,16 +202,22 @@ def _form_nuovo_template(utente):
             st.error("Il titolo e obbligatorio.")
         else:
             righe = st.session_state.get("righe_template_new", [])
-            crea_template({
+            dati = {
                 "titolo": titolo,
                 "descrizione": descrizione,
                 "righe": righe,
                 "valuta": valuta,
                 "note": note,
-            }, utente["id"])
-            st.session_state.righe_template_new = []
-            st.success("Template creato.")
-            st.rerun()
+            }
+            st.write(f"DEBUG dati da salvare: {dati}")
+            risultato = crea_template(dati, utente["id"])
+            st.write(f"DEBUG risultato crea_template: {risultato}")
+            if risultato:
+                st.session_state.righe_template_new = []
+                st.success("Template creato.")
+                st.rerun()
+            else:
+                st.error("Errore nel salvataggio — controlla i log.")
 
     st.markdown("---")
     _form_righe_template(key_prefix="tmpl_new", state_key="righe_template_new")
