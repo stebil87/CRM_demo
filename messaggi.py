@@ -3,11 +3,14 @@ from db import (lista_messaggi_ricevuti, lista_messaggi_inviati,
                 invia_messaggio, segna_come_letto, lista_utenti)
 from datetime import datetime
 
+
 def pagina_messaggi(utente):
     st.title("Posta interna")
     st.markdown("---")
 
-    tab_ricevuti, tab_inviati, tab_nuovo = st.tabs(["In arrivo", "Inviati", "Nuovo messaggio"])
+    tab_ricevuti, tab_inviati, tab_nuovo = st.tabs([
+        "In arrivo", "Inviati", "Nuovo messaggio"
+    ])
 
     with tab_ricevuti:
         messaggi = lista_messaggi_ricevuti(utente["id"])
@@ -19,17 +22,30 @@ def pagina_messaggi(utente):
                 nome_mitt = f"{mitt.get('nome','')} {mitt.get('cognome','')}".strip() or "—"
                 data_str = (m.get("created_at") or "")[:16].replace("T", " ")
                 non_letto = not m.get("letto", True)
+                oggetto_display = m.get("oggetto") or "(nessun oggetto)"
 
-                stile_titolo = "font-weight:700;" if non_letto else "font-weight:400;"
-                badge = "<span style='background:#e94560;color:white;font-size:9px;padding:2px 6px;border-radius:10px;margin-left:8px;'>NUOVO</span>" if non_letto else ""
-
-                with st.expander(f"{nome_mitt}   |   {m.get('oggetto','—')}   |   {data_str}"):
+                with st.expander(
+                    f"{nome_mitt}   |   {oggetto_display}   |   {data_str}"
+                    + ("   |   NUOVO" if non_letto else "")
+                ):
                     if non_letto:
                         segna_come_letto(m["id"])
-                    st.markdown(f"<p style='font-size:12px;color:#888;margin-bottom:8px;'>Da: <b>{nome_mitt}</b> &nbsp;·&nbsp; {data_str}</p>", unsafe_allow_html=True)
-                    st.markdown(f"<p style='font-size:13px;font-weight:600;margin-bottom:12px;'>{m.get('oggetto','')}</p>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='font-size:13px;line-height:1.7;white-space:pre-wrap;'>{m.get('corpo','')}</div>", unsafe_allow_html=True)
-
+                    st.markdown(
+                        f"<p style='font-size:12px;color:#888;margin-bottom:8px;'>"
+                        f"Da: <b>{nome_mitt}</b> &nbsp;·&nbsp; {data_str}</p>",
+                        unsafe_allow_html=True
+                    )
+                    if m.get("oggetto"):
+                        st.markdown(
+                            f"<p style='font-size:13px;font-weight:600;"
+                            f"margin-bottom:12px;'>{m['oggetto']}</p>",
+                            unsafe_allow_html=True
+                        )
+                    st.markdown(
+                        f"<div style='font-size:13px;line-height:1.7;"
+                        f"white-space:pre-wrap;'>{m.get('corpo','')}</div>",
+                        unsafe_allow_html=True
+                    )
                     st.markdown("---")
                     if st.button("Rispondi", key=f"risp_{m['id']}"):
                         st.session_state.reply_to = m
@@ -45,37 +61,74 @@ def pagina_messaggi(utente):
                 nome_dest = f"{dest.get('nome','')} {dest.get('cognome','')}".strip() or "—"
                 data_str = (m.get("created_at") or "")[:16].replace("T", " ")
                 letto_str = "Letto" if m.get("letto") else "Non letto"
-                with st.expander(f"A: {nome_dest}   |   {m.get('oggetto','—')}   |   {data_str}   |   {letto_str}"):
-                    st.markdown(f"<p style='font-size:12px;color:#888;margin-bottom:8px;'>A: <b>{nome_dest}</b> &nbsp;·&nbsp; {data_str} &nbsp;·&nbsp; {letto_str}</p>", unsafe_allow_html=True)
-                    st.markdown(f"<p style='font-size:13px;font-weight:600;margin-bottom:12px;'>{m.get('oggetto','')}</p>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='font-size:13px;line-height:1.7;white-space:pre-wrap;'>{m.get('corpo','')}</div>", unsafe_allow_html=True)
+                oggetto_display = m.get("oggetto") or "(nessun oggetto)"
+
+                with st.expander(
+                    f"A: {nome_dest}   |   {oggetto_display}   |   "
+                    f"{data_str}   |   {letto_str}"
+                ):
+                    st.markdown(
+                        f"<p style='font-size:12px;color:#888;margin-bottom:8px;'>"
+                        f"A: <b>{nome_dest}</b> &nbsp;·&nbsp; {data_str} "
+                        f"&nbsp;·&nbsp; {letto_str}</p>",
+                        unsafe_allow_html=True
+                    )
+                    if m.get("oggetto"):
+                        st.markdown(
+                            f"<p style='font-size:13px;font-weight:600;"
+                            f"margin-bottom:12px;'>{m['oggetto']}</p>",
+                            unsafe_allow_html=True
+                        )
+                    st.markdown(
+                        f"<div style='font-size:13px;line-height:1.7;"
+                        f"white-space:pre-wrap;'>{m.get('corpo','')}</div>",
+                        unsafe_allow_html=True
+                    )
 
     with tab_nuovo:
         _form_nuovo_messaggio(utente)
 
-    # Risposta rapida
+    # ── RISPOSTA RAPIDA ──
     if st.session_state.get("reply_to"):
         m = st.session_state.reply_to
         mitt = m.get("mittente") or {}
         nome_mitt = f"{mitt.get('nome','')} {mitt.get('cognome','')}".strip()
         st.markdown("---")
         st.subheader(f"Risposta a {nome_mitt}")
+
+        oggetto_reply = f"Re: {m.get('oggetto','')}" if m.get("oggetto") else ""
+
         with st.form("form_risposta"):
-            oggetto = st.text_input("Oggetto", value=f"Re: {m.get('oggetto','')}")
-            corpo = st.text_area("Messaggio", height=150)
+            oggetto = st.text_input(
+                "Oggetto (opzionale)",
+                value=oggetto_reply,
+                placeholder="Lascia vuoto se non necessario"
+            )
+            corpo = st.text_area("Messaggio *", height=150)
             col1, col2 = st.columns(2)
             with col1:
-                invia = st.form_submit_button("Invia risposta", use_container_width=True)
+                invia = st.form_submit_button(
+                    "Invia risposta", use_container_width=True)
             with col2:
-                annulla = st.form_submit_button("Annulla", use_container_width=True)
+                annulla = st.form_submit_button(
+                    "Annulla", use_container_width=True)
+
         if invia:
-            invia_messaggio(utente["id"], mitt.get("id") or m.get("mittente_id"), oggetto, corpo)
-            st.session_state.reply_to = None
-            st.success("Risposta inviata.")
-            st.rerun()
+            if not corpo:
+                st.error("Il messaggio non può essere vuoto.")
+            else:
+                invia_messaggio(
+                    utente["id"],
+                    mitt.get("id") or m.get("mittente_id"),
+                    oggetto, corpo
+                )
+                st.session_state.reply_to = None
+                st.success("Risposta inviata.")
+                st.rerun()
         if annulla:
             st.session_state.reply_to = None
             st.rerun()
+
 
 def _form_nuovo_messaggio(utente):
     st.subheader("Nuovo messaggio")
@@ -86,30 +139,36 @@ def _form_nuovo_messaggio(utente):
         st.info("Nessun altro utente disponibile.")
         return
 
-    opzioni = {f"{u['nome']} {u['cognome']} ({u['email']})": u["id"] for u in altri}
+    opzioni = {
+        f"{u['nome']} {u['cognome']} ({u['email']})": u["id"]
+        for u in altri
+    }
 
     reply = st.session_state.get("reply_to")
-    default_dest = None
+    default_idx = 0
     if reply:
         mitt = reply.get("mittente") or {}
         mitt_id = mitt.get("id") or reply.get("mittente_id")
         ids = list(opzioni.values())
         if mitt_id in ids:
-            default_dest = ids.index(mitt_id)
+            default_idx = ids.index(mitt_id)
 
     with st.form("form_nuovo_msg"):
         destinatario_label = st.selectbox(
-            "Destinatario",
+            "Destinatario *",
             list(opzioni.keys()),
-            index=default_dest or 0
+            index=default_idx
         )
-        oggetto = st.text_input("Oggetto")
-        corpo = st.text_area("Messaggio", height=180)
+        oggetto = st.text_input(
+            "Oggetto (opzionale)",
+            placeholder="Lascia vuoto se non necessario"
+        )
+        corpo = st.text_area("Messaggio *", height=180)
         invia = st.form_submit_button("Invia", use_container_width=True)
 
     if invia:
-        if not oggetto or not corpo:
-            st.error("Oggetto e messaggio sono obbligatori.")
+        if not corpo:
+            st.error("Il messaggio non può essere vuoto.")
         else:
             dest_id = opzioni[destinatario_label]
             err = invia_messaggio(utente["id"], dest_id, oggetto, corpo)
