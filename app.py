@@ -10,6 +10,7 @@ from messaggi import pagina_messaggi
 from calendario import pagina_calendario
 from template_offerte import pagina_template
 from eventi_catering import pagina_eventi
+from inbox_widget import pagina_inbox
 from db import lista_messaggi_non_letti
 
 st.set_page_config(
@@ -33,15 +34,31 @@ html, body, [class*="css"] {
 footer { display: none !important; }
 #MainMenu { visibility: hidden; }
 
-/* ── SIDEBAR FISSA ── */
-section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0d0d1a 0%, #1a1a2e 60%, #16213e 100%) !important;
-    border-right: 1px solid #2a2a4a !important;
+[data-testid="stSidebar"] {
     min-width: 260px !important;
     width: 260px !important;
-    transform: none !important;
-    visibility: visible !important;
-    display: block !important;
+}
+
+.login-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: #aaaabc;
+    text-align: center;
+    margin-bottom: 24px;
+}
+.login-footer {
+    font-size: 11px;
+    color: #c0c0cc;
+    text-align: center;
+    margin-top: 28px;
+    letter-spacing: 0.3px;
+}
+
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0d0d1a 0%, #1a1a2e 60%, #16213e 100%);
+    border-right: 1px solid #2a2a4a;
 }
 section[data-testid="stSidebar"] * {
     color: #e8e8f0 !important;
@@ -67,15 +84,6 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     padding-left: 13px;
 }
 
-/* Nasconde freccia chiudi sidebar */
-[data-testid="collapsedControl"] {
-    display: none !important;
-}
-button[data-testid="baseButton-header"] {
-    display: none !important;
-}
-
-/* Bottone fisso riapri menu */
 .btn-apri-menu {
     position: fixed;
     top: 12px;
@@ -98,7 +106,9 @@ button[data-testid="baseButton-header"] {
     background: #2d2d5e !important;
 }
 
-/* ── MAIN ── */
+[data-testid="collapsedControl"] { display: none !important; }
+button[data-testid="baseButton-header"] { display: none !important; }
+
 .main .block-container {
     padding: 2rem 2.5rem;
     max-width: 1400px;
@@ -136,9 +146,6 @@ h3 { font-size: 14px !important; font-weight: 600 !important; color: #1a1a2e !im
     color: #1a1a2e !important;
     border: 1px solid #dddde8;
 }
-.stButton > button[kind="secondary"]:hover {
-    background: #eaeaf4 !important;
-}
 
 .stTextInput > div > div > input,
 .stTextArea > div > div > textarea,
@@ -148,7 +155,6 @@ h3 { font-size: 14px !important; font-weight: 600 !important; color: #1a1a2e !im
     font-size: 13px;
     color: #1a1a2e;
     background: #fafafa;
-    transition: border 0.2s;
 }
 .stTextInput > div > div > input:focus,
 .stTextArea > div > div > textarea:focus {
@@ -185,9 +191,6 @@ h3 { font-size: 14px !important; font-weight: 600 !important; color: #1a1a2e !im
     font-weight: 500;
     color: #1a1a2e;
     padding: 12px 16px;
-}
-.streamlit-expanderHeader:hover {
-    background: #f0f0f8;
 }
 .streamlit-expanderContent {
     border: 1px solid #eaeaf0;
@@ -248,23 +251,6 @@ hr { border: none; border-top: 1px solid #eaeaf0; margin: 16px 0; }
     color: #666888 !important;
     padding: 14px 16px 6px 16px;
 }
-
-.login-label {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-    color: #aaaabc;
-    text-align: center;
-    margin-bottom: 24px;
-}
-.login-footer {
-    font-size: 11px;
-    color: #c0c0cc;
-    text-align: center;
-    margin-top: 28px;
-    letter-spacing: 0.3px;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -279,11 +265,8 @@ st.markdown("""
         sidebar.style.transform = 'translateX(0px)';
         sidebar.style.width = '260px';
         sidebar.style.minWidth = '260px';
-        sidebar.style.position = 'relative';
     }
-    if (collapsed) {
-        collapsed.click();
-    }
+    if (collapsed) { collapsed.click(); }
 ">&#9776; Menu</button>
 """, unsafe_allow_html=True)
 
@@ -377,6 +360,7 @@ with st.sidebar:
         ("eventi",      "Eventi"),
         ("calendario",  "Calendario"),
         ("messaggi",    label_msg),
+        # ("inbox", "Posta condivisa"),  # ← attivare quando pronto
     ]
     if is_admin(utente):
         nav_items.append(("admin", "Amministrazione"))
@@ -416,6 +400,7 @@ breadcrumb_map = {
     "eventi":      "Eventi",
     "calendario":  "Calendario",
     "messaggi":    "Messaggi",
+    "inbox":       "Posta condivisa",
     "admin":       "Amministrazione",
 }
 breadcrumb = breadcrumb_map.get(p, "")
@@ -444,5 +429,7 @@ elif p == "calendario":
     pagina_calendario(utente)
 elif p == "messaggi":
     pagina_messaggi(utente)
+elif p == "inbox":
+    pagina_inbox(utente)
 elif p == "admin":
     pagina_admin(utente)
