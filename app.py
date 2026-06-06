@@ -7,8 +7,8 @@ from offerte import pagina_offerte
 from documenti import pagina_documenti
 from admin import pagina_admin
 from messaggi import pagina_messaggi
-from db import lista_messaggi_non_letti
 from calendario import pagina_calendario
+from db import lista_messaggi_non_letti
 
 st.set_page_config(
     page_title="1908 Group — CRM",
@@ -245,19 +245,10 @@ hr {
     color: #666888 !important;
     padding: 14px 16px 6px 16px;
 }
-.badge-msg {
-    background: #e94560;
-    color: white !important;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 2px 7px;
-    border-radius: 10px;
-    margin-left: 6px;
-}
 </style>
 """, unsafe_allow_html=True)
 
-# Session state defaults
+# ── SESSION STATE DEFAULTS ─────────────────────────────────────────────────
 for k, v in {
     "pagina": "dashboard",
     "cliente_id": None,
@@ -267,7 +258,7 @@ for k, v in {
     if k not in st.session_state:
         st.session_state[k] = v
 
-# Auth check
+# ── AUTH CHECK ─────────────────────────────────────────────────────────────
 utente = check_auth()
 
 # ── LOGIN ──────────────────────────────────────────────────────────────────
@@ -280,13 +271,19 @@ if not utente:
             with logo_col2:
                 st.image("1908_Group_Black.png", use_container_width=True)
         except:
-            st.markdown("<h2 style='text-align:center;color:#1a1a2e;'>1908 Group SA</h2>",
-                        unsafe_allow_html=True)
+            st.markdown(
+                "<h2 style='text-align:center;color:#1a1a2e;'>1908 Group SA</h2>",
+                unsafe_allow_html=True
+            )
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("<p class='login-label'>Accesso riservato</p>", unsafe_allow_html=True)
+        st.markdown(
+            "<p class='login-label'>Accesso riservato</p>",
+            unsafe_allow_html=True
+        )
         pagina_login()
         st.markdown(
-            "<p class='login-footer'>1908 Group SA &nbsp;·&nbsp; Piattaforma CRM &nbsp;·&nbsp; Uso riservato</p>",
+            "<p class='login-footer'>1908 Group SA &nbsp;·&nbsp; "
+            "Piattaforma CRM &nbsp;·&nbsp; Uso riservato</p>",
             unsafe_allow_html=True
         )
     st.stop()
@@ -303,7 +300,10 @@ with st.sidebar:
     except:
         st.markdown("**1908 Group SA**")
 
-    st.markdown("<hr style='border-color:#2a2a4a;margin:16px 0;'>", unsafe_allow_html=True)
+    st.markdown(
+        "<hr style='border-color:#2a2a4a;margin:16px 0;'>",
+        unsafe_allow_html=True
+    )
 
     st.markdown(f"""
     <div class="sidebar-user">
@@ -322,13 +322,19 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="sidebar-nav-label">Navigazione</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="sidebar-nav-label">Navigazione</div>',
+        unsafe_allow_html=True
+    )
+
+    label_msg = f"Messaggi  ({n_non_letti})" if n_non_letti > 0 else "Messaggi"
 
     nav_items = [
-        ("dashboard", "Dashboard"),
-        ("clienti", "Clienti"),
+        ("dashboard",   "Dashboard"),
+        ("clienti",     "Clienti"),
         ("offerte_all", "Offerte"),
-        ("messaggi", f"Messaggi{'  (' + str(n_non_letti) + ')' if n_non_letti > 0 else ''}"),
+        ("calendario",  "Calendario"),
+        ("messaggi",    label_msg),
     ]
     if is_admin(utente):
         nav_items.append(("admin", "Amministrazione"))
@@ -341,33 +347,38 @@ with st.sidebar:
                 st.session_state.cliente_nome = None
             st.rerun()
 
-    # Toggle notifiche — prima del bottone Esci
+    st.markdown(
+        "<hr style='border-color:#2a2a4a;margin:16px 0;'>",
+        unsafe_allow_html=True
+    )
+
+    # Toggle notifiche
     notifiche_on = not st.session_state.get("notifiche_disattivate", False)
     label_notifiche = "Notifiche: ON" if notifiche_on else "Notifiche: OFF"
     if st.button(label_notifiche, key="toggle_notifiche", use_container_width=True):
         st.session_state.notifiche_disattivate = notifiche_on
         st.rerun()
 
-    st.markdown("<hr style='border-color:#2a2a4a;margin:16px 0;'>", unsafe_allow_html=True)
     if st.button("Esci", key="nav_logout", use_container_width=True):
         do_logout()
 
 # ── BREADCRUMB ─────────────────────────────────────────────────────────────
 p = st.session_state.pagina
 breadcrumb_map = {
-    "dashboard": "Dashboard",
-    "clienti": "Clienti",
-    "diario": f"Clienti  /  {st.session_state.cliente_nome or ''}  /  Diario",
-    "offerte": f"Clienti  /  {st.session_state.cliente_nome or ''}  /  Offerte",
+    "dashboard":   "Dashboard",
+    "clienti":     "Clienti",
+    "diario":      f"Clienti  /  {st.session_state.cliente_nome or ''}  /  Diario",
+    "offerte":     f"Clienti  /  {st.session_state.cliente_nome or ''}  /  Offerte",
     "offerte_all": "Offerte",
-    "documenti": f"Clienti  /  {st.session_state.cliente_nome or ''}  /  Documenti",
-    "messaggi": "Messaggi",
-    "admin": "Amministrazione",
+    "documenti":   f"Clienti  /  {st.session_state.cliente_nome or ''}  /  Documenti",
+    "calendario":  "Calendario",
+    "messaggi":    "Messaggi",
+    "admin":       "Amministrazione",
 }
 breadcrumb = breadcrumb_map.get(p, "")
 st.markdown(
-    f"<p style='font-size:11px;color:#aaa;letter-spacing:0.5px;margin-bottom:4px;"
-    f"text-transform:uppercase;'>{breadcrumb}</p>",
+    f"<p style='font-size:11px;color:#aaa;letter-spacing:0.5px;"
+    f"margin-bottom:4px;text-transform:uppercase;'>{breadcrumb}</p>",
     unsafe_allow_html=True
 )
 
@@ -382,6 +393,8 @@ elif p in ("offerte", "offerte_all"):
     pagina_offerte(utente, st.session_state.cliente_id, st.session_state.cliente_nome)
 elif p == "documenti":
     pagina_documenti(utente, st.session_state.cliente_id, st.session_state.cliente_nome)
+elif p == "calendario":
+    pagina_calendario(utente)
 elif p == "messaggi":
     pagina_messaggi(utente)
 elif p == "admin":
