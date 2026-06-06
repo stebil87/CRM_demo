@@ -23,7 +23,6 @@ def check_auth():
     return st.session_state.utente
 
 def pagina_login():
-    st.title("CRM — Accesso")
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
