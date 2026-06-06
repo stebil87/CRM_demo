@@ -33,6 +33,70 @@ def get_profilo_utente(user_id):
     except:
         return None
 
+# ── CONDIVISIONI TEMPLATE ─────────────────────────────
+
+def lista_template(user_id):
+    """Template propri + quelli condivisi con me."""
+    sb = get_sb()
+    try:
+        # I miei template
+        miei = sb.table("template_offerte").select(
+            "*, creatore:utenti!template_offerte_created_by_fkey(nome, cognome)"
+        ).eq("created_by", user_id).order("created_at", desc=True).execute()
+
+        # Template condivisi con me
+        condivisi_ids_res = sb.table("template_condivisioni").select(
+            "template_id"
+        ).eq("utente_id", user_id).execute()
+
+        ids_condivisi = [r["template_id"] for r in (condivisi_ids_res.data or [])]
+
+        condivisi = []
+        if ids_condivisi:
+            res = sb.table("template_offerte").select(
+                "*, creatore:utenti!template_offerte_created_by_fkey(nome, cognome)"
+            ).in_("id", ids_condivisi).execute()
+            condivisi = res.data or []
+
+        tutti = (miei.data or []) + condivisi
+        return tutti
+    except:
+        return []
+
+def get_condivisioni_template(template_id):
+    """Chi ha accesso a questo template."""
+    sb = get_sb()
+    try:
+        res = sb.table("template_condivisioni").select(
+            "*, utente:utenti(id, nome, cognome, email)"
+        ).eq("template_id", template_id).execute()
+        return res.data or []
+    except:
+        return []
+
+def condividi_template(template_id, utente_id):
+    sb = get_sb()
+    try:
+        sb.table("template_condivisioni").upsert({
+            "template_id": template_id,
+            "utente_id": utente_id,
+        }, on_conflict="template_id,utente_id").execute()
+        _invalida_cache_template()
+        return None
+    except Exception as e:
+        return str(e)
+
+def rimuovi_condivisione_template(template_id, utente_id):
+    sb = get_sb()
+    try:
+        sb.table("template_condivisioni").delete().eq(
+            "template_id", template_id
+        ).eq("utente_id", utente_id).execute()
+        _invalida_cache_template()
+        return None
+    except Exception as e:
+        return str(e)
+
 def crea_utente_profilo(user_id, nome, cognome, email, ruolo):
     sb = get_sb()
     try:
