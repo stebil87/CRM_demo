@@ -2,6 +2,7 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
+from db import ora_locale
 from datetime import datetime
 import random
 from db import (
@@ -17,7 +18,7 @@ def is_event_manager(utente):
 
 
 def _saluto(utente):
-    ora = datetime.now().hour
+    ora = ora_locale().hour
     nome = utente.get("nome", "")
 
     if 5 <= ora < 12:
