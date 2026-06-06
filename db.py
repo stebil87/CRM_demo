@@ -12,7 +12,215 @@ def get_sb():
     url = st.secrets["SUPABASE_URL"]
     service_key = st.secrets["SUPABASE_SERVICE_KEY"]
     return create_client(url, service_key)
+# ── NOTE DASHBOARD ────────────────────────────────────
 
+def lista_note(utente_id):
+    sb = get_sb()
+    try:
+        res = sb.table("note_dashboard").select("*").eq(
+            "utente_id", utente_id
+        ).order("updated_at", desc=True).execute()
+        return res.data or []
+    except:
+        return []
+
+def crea_nota(utente_id, testo, colore="#fff9c4"):
+    sb = get_sb()
+    try:
+        res = sb.table("note_dashboard").insert({
+            "utente_id": utente_id,
+            "testo": testo,
+            "colore": colore
+        }).execute()
+        return res.data[0] if res.data else None
+    except:
+        return None
+
+def aggiorna_nota(nota_id, testo, colore):
+    sb = get_sb()
+    try:
+        from datetime import datetime
+        sb.table("note_dashboard").update({
+            "testo": testo,
+            "colore": colore,
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("id", nota_id).execute()
+    except:
+        pass
+
+def elimina_nota(nota_id):
+    sb = get_sb()
+    try:
+        sb.table("note_dashboard").delete().eq("id", nota_id).execute()
+    except:
+        pass
+
+# ── EVENTI CATERING ───────────────────────────────────
+
+def lista_eventi_catering(solo_nuovo=False):
+    sb = get_sb()
+    try:
+        q = sb.table("eventi_catering").select(
+            "*, cliente:clienti(nome, cognome, ragione_sociale, tipo, email),"
+            "offerta:offerte(numero, titolo, importo, valuta),"
+            "creatore:utenti!eventi_catering_creato_da_fkey(nome, cognome),"
+            "manager:utenti!eventi_catering_event_manager_id_fkey(nome, cognome)"
+        ).order("data_inizio")
+        if solo_nuovo:
+            q = q.eq("stato", "nuovo")
+        res = q.execute()
+        return res.data or []
+    except:
+        return []
+
+def get_evento_catering(evento_id):
+    sb = get_sb()
+    try:
+        res = sb.table("eventi_catering").select(
+            "*, cliente:clienti(nome, cognome, ragione_sociale, tipo, email, telefono, indirizzo, citta),"
+            "offerta:offerte(numero, titolo, importo, valuta, righe, descrizione),"
+            "creatore:utenti!eventi_catering_creato_da_fkey(nome, cognome),"
+            "manager:utenti!eventi_catering_event_manager_id_fkey(nome, cognome)"
+        ).eq("id", evento_id).execute()
+        if res.data and len(res.data) > 0:
+            return res.data[0]
+        return None
+    except:
+        return None
+
+def crea_evento_catering(dati, user_id):
+    sb = get_sb()
+    try:
+        dati["creato_da"] = user_id
+        res = sb.table("eventi_catering").insert(dati).execute()
+        return res.data[0] if res.data else None
+    except Exception as e:
+        return None
+
+def aggiorna_evento_catering(evento_id, dati):
+    sb = get_sb()
+    try:
+        from datetime import datetime
+        dati["updated_at"] = datetime.utcnow().isoformat()
+        sb.table("eventi_catering").update(dati).eq("id", evento_id).execute()
+    except:
+        pass
+
+def lista_collaboratori_evento(evento_id):
+    sb = get_sb()
+    try:
+        res = sb.table("eventi_collaboratori").select(
+            "*, utente:utenti(nome, cognome, email)"
+        ).eq("evento_id", evento_id).execute()
+        return res.data or []
+    except:
+        return []
+
+def aggiungi_collaboratore(evento_id, utente_id=None, nome_esterno=None, email_esterno=None, ruolo=None):
+    sb = get_sb()
+    try:
+        res = sb.table("eventi_collaboratori").insert({
+            "evento_id": evento_id,
+            "utente_id": utente_id,
+            "nome_esterno": nome_esterno,
+            "email_esterno": email_esterno,
+            "ruolo": ruolo,
+            "avvisato": False
+        }).execute()
+        return res.data[0] if res.data else None
+    except:
+        return None
+
+def rimuovi_collaboratore(collab_id):
+    sb = get_sb()
+    try:
+        sb.table("eventi_collaboratori").delete().eq("id", collab_id).execute()
+    except:
+        pass
+
+def segna_collaboratore_avvisato(collab_id):
+    sb = get_sb()
+    try:
+        sb.table("eventi_collaboratori").update(
+            {"avvisato": True}
+        ).eq("id", collab_id).execute()
+    except:
+        pass
+
+def lista_allegati_evento(evento_id):
+    sb = get_sb()
+    try:
+        res = sb.table("eventi_allegati").select("*").eq(
+            "evento_id", evento_id
+        ).execute()
+        return res.data or []
+    except:
+        return []
+
+def carica_allegato_evento(evento_id, file_bytes, nome_file, tipo_file, dimensione, user_id):
+    sb = get_sb()
+    import uuid
+    path = f"{evento_id}/{uuid.uuid4()}_{nome_file}"
+    try:
+        sb.storage.from_("eventi-allegati").upload(
+            path, file_bytes, {"content-type": tipo_file})
+        sb.table("eventi_allegati").insert({
+            "evento_id": evento_id,
+            "nome_file": nome_file,
+            "storage_path": path,
+            "tipo_file": tipo_file,
+            "dimensione": dimensione,
+            "created_by": user_id
+        }).execute()
+        return None
+    except Exception as e:
+        return str(e)
+
+def scarica_allegato_evento(storage_path):
+    sb = get_sb()
+    try:
+        return sb.storage.from_("eventi-allegati").download(storage_path)
+    except:
+        return None
+
+def lista_ore_evento(evento_id):
+    sb = get_sb()
+    try:
+        res = sb.table("ore_evento").select(
+            "*, utente:utenti(nome, cognome)"
+        ).eq("evento_id", evento_id).execute()
+        return res.data or []
+    except:
+        return []
+
+def inserisci_ore(dati):
+    sb = get_sb()
+    try:
+        res = sb.table("ore_evento").insert(dati).execute()
+        return res.data[0] if res.data else None
+    except Exception as e:
+        return None
+
+def eventi_assegnati_a_utente(utente_id):
+    """Eventi in cui l'utente è collaboratore e non ha ancora inserito le ore."""
+    sb = get_sb()
+    try:
+        res = sb.table("eventi_collaboratori").select(
+            "*, evento:eventi_catering(id, titolo, data_fine, stato)"
+        ).eq("utente_id", utente_id).execute()
+        return res.data or []
+    except:
+        return []
+
+def utenti_event_manager():
+    sb = get_sb()
+    try:
+        res = sb.table("utenti").select("*").in_(
+            "ruolo", ["event_manager", "admin"]
+        ).execute()
+        return res.data or []
+    except:
+        return []
 # ── TEMPLATE OFFERTE ──────────────────────────────────
 
 def lista_template(user_id):
