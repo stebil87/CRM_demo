@@ -27,9 +27,11 @@ def logout_utente():
 def get_profilo_utente(user_id):
     sb = get_supabase()
     try:
-        res = sb.table("utenti").select("*").eq("id", user_id).single().execute()
-        return res.data
-    except:
+        res = sb.table("utenti").select("*").eq("id", user_id).execute()
+        if res.data and len(res.data) > 0:
+            return res.data[0]
+        return None
+    except Exception as e:
         return None
 
 def crea_utente_profilo(user_id, nome, cognome, email, ruolo):
