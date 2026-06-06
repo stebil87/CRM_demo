@@ -128,18 +128,38 @@ def pagina_dashboard(utente):
 
     st.markdown("---")
 
-    # ── NOTE + AVVISI ──
-    # inbox_widget disattivato — attivare quando pronto
-    # from inbox_widget import widget_inbox
-    # col_note, col_inbox, col_avvisi = st.columns(3)
-    # with col_inbox:
-    #     widget_inbox(utente)
-
-    col_note, col_avvisi = st.columns(2)
+    # ── NOTE + INBOX PLACEHOLDER + AVVISI ──
+    col_note, col_inbox, col_avvisi = st.columns(3)
 
     with col_note:
         from note_dashboard import widget_note
         widget_note(utente)
+
+    with col_inbox:
+        st.markdown(
+            "<div style='display:flex;align-items:center;"
+            "justify-content:space-between;margin-bottom:12px;'>"
+            "<span style='font-size:13px;font-weight:600;color:#1a1a2e;'>"
+            "Email in arrivo</span>"
+            "<span style='background:#eaeaf0;color:#888;font-size:10px;"
+            "font-weight:600;padding:2px 8px;border-radius:10px;'>"
+            "Prossimamente</span>"
+            "</div>",
+            unsafe_allow_html=True
+        )
+        st.markdown(
+            "<div style='background:white;border:1px solid #eaeaf0;"
+            "border-radius:8px;padding:28px 16px;text-align:center;'>"
+            "<div style='font-size:32px;margin-bottom:10px;color:#dddde8;'>✉</div>"
+            "<div style='font-size:13px;font-weight:600;color:#1a1a2e;"
+            "margin-bottom:6px;'>Inbox condivisa</div>"
+            "<div style='font-size:12px;color:#aaa;line-height:1.6;'>"
+            "Le email ricevute su catering@...<br>"
+            "appariranno qui e potranno essere<br>"
+            "prese in carico dal team.</div>"
+            "</div>",
+            unsafe_allow_html=True
+        )
 
     with col_avvisi:
         from eventi_catering import widget_avvisi_eventi
