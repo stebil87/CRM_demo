@@ -8,176 +8,10 @@ def get_supabase():
     return create_client(url, key)
 
 def get_sb():
-    sb = get_supabase()
-    try:
-        session = st.session_state.get("supabase_session")
-        if session:
-            sb.auth.set_session(session.access_token, session.refresh_token)
-    except:
-        pass
-    return sb
-
-
-# ── AUTORIZZAZIONI CALENDARIO ─────────────────────────────────────────────
-
-def get_autorizzazioni_calendario(utente_id):
-    """Restituisce i calendari che utente_id può vedere o modificare."""
-    sb = get_sb()
-    try:
-        res = sb.table("calendario_autorizzazioni").select(
-            "*, proprietario:utenti!calendario_autorizzazioni_calendario_di_fkey"
-            "(id, nome, cognome)"
-        ).eq("utente_id", utente_id).execute()
-        return res.data or []
-    except:
-        return []
-
-def get_calendari_visibili(utente_id):
-    """Lista di user_id i cui calendari sono visibili a utente_id (incluso il proprio)."""
-    sb = get_sb()
-    try:
-        res = sb.table("calendario_autorizzazioni").select(
-            "calendario_di"
-        ).eq("utente_id", utente_id).eq("puo_vedere", True).execute()
-        ids = [r["calendario_di"] for r in (res.data or [])]
-        if utente_id not in ids:
-            ids.append(utente_id)
-        return ids
-    except:
-        return [utente_id]
-
-def get_calendari_modificabili(utente_id):
-    """Lista di user_id i cui calendari sono modificabili da utente_id (incluso il proprio)."""
-    sb = get_sb()
-    try:
-        res = sb.table("calendario_autorizzazioni").select(
-            "calendario_di"
-        ).eq("utente_id", utente_id).eq("puo_modificare", True).execute()
-        ids = [r["calendario_di"] for r in (res.data or [])]
-        if utente_id not in ids:
-            ids.append(utente_id)
-        return ids
-    except:
-        return [utente_id]
-
-def salva_autorizzazione_calendario(utente_id, calendario_di, puo_vedere, puo_modificare):
-    sb = get_sb()
-    try:
-        # upsert
-        sb.table("calendario_autorizzazioni").upsert({
-            "utente_id": utente_id,
-            "calendario_di": calendario_di,
-            "puo_vedere": puo_vedere,
-            "puo_modificare": puo_modificare,
-        }, on_conflict="utente_id,calendario_di").execute()
-        return None
-    except Exception as e:
-        return str(e)
-
-def elimina_autorizzazione_calendario(utente_id, calendario_di):
-    sb = get_sb()
-    try:
-        sb.table("calendario_autorizzazioni").delete().eq(
-            "utente_id", utente_id
-        ).eq("calendario_di", calendario_di).execute()
-        return None
-    except Exception as e:
-        return str(e)
-
-def eventi_del_mese_multi(anno, mese, utenti_ids):
-    """Carica eventi per una lista di proprietari."""
-    sb = get_sb()
-    try:
-        import calendar as cal_lib
-        primo = f"{anno}-{mese:02d}-01"
-        ultimo_giorno = cal_lib.monthrange(anno, mese)[1]
-        ultimo = f"{anno}-{mese:02d}-{ultimo_giorno}T23:59:59"
-        res = sb.table("calendario").select(
-            "*, proprietario:utenti!calendario_proprietario_id_fkey(id, nome, cognome)"
-        ).in_("proprietario_id", utenti_ids).gte(
-            "data_inizio", primo
-        ).lte("data_inizio", ultimo).execute()
-        return res.data or []
-    except:
-        return []
-
-def eventi_oggi_multi(utenti_ids):
-    sb = get_sb()
-    try:
-        from datetime import date
-        oggi = date.today().isoformat()
-        res = sb.table("calendario").select(
-            "*, proprietario:utenti!calendario_proprietario_id_fkey(id, nome, cognome)"
-        ).in_("proprietario_id", utenti_ids).gte(
-            "data_inizio", f"{oggi}T00:00:00"
-        ).lte("data_inizio", f"{oggi}T23:59:59").order("data_inizio").execute()
-        return res.data or []
-    except:
-        return []
-
-
-# ── CALENDARIO ────────────────────────────────────────
-
-def eventi_del_mese(anno, mese, user_id):
-    sb = get_sb()
-    try:
-        from datetime import date
-        import calendar
-        primo = f"{anno}-{mese:02d}-01"
-        ultimo_giorno = calendar.monthrange(anno, mese)[1]
-        ultimo = f"{anno}-{mese:02d}-{ultimo_giorno}"
-        res = sb.table("calendario").select(
-            "*, proprietario:utenti!calendario_proprietario_id_fkey(nome, cognome),"
-            "creatore:utenti!calendario_creato_da_fkey(nome, cognome)"
-        ).or_(
-            f"proprietario_id.eq.{user_id},"
-            f"partecipanti.cs.[\"{user_id}\"]"
-        ).gte("data_inizio", primo).lte("data_inizio", ultimo + "T23:59:59").execute()
-        return res.data or []
-    except Exception as e:
-        return []
-
-def eventi_oggi(user_id):
-    sb = get_sb()
-    try:
-        from datetime import date
-        oggi = date.today().isoformat()
-        res = sb.table("calendario").select(
-            "*, proprietario:utenti!calendario_proprietario_id_fkey(nome, cognome)"
-        ).or_(
-            f"proprietario_id.eq.{user_id},"
-            f"partecipanti.cs.[\"{user_id}\"]"
-        ).gte("data_inizio", f"{oggi}T00:00:00").lte(
-            "data_inizio", f"{oggi}T23:59:59"
-        ).order("data_inizio").execute()
-        return res.data or []
-    except:
-        return []
-
-def crea_evento(dati, user_id):
-    sb = get_sb()
-    try:
-        dati["creato_da"] = user_id
-        res = sb.table("calendario").insert(dati).execute()
-        return res.data[0] if res.data else None
-    except Exception as e:
-        return None
-
-def aggiorna_evento(evento_id, dati):
-    sb = get_sb()
-    try:
-        from datetime import datetime
-        dati["updated_at"] = datetime.utcnow().isoformat()
-        sb.table("calendario").update(dati).eq("id", evento_id).execute()
-    except:
-        pass
-
-def elimina_evento(evento_id):
-    sb = get_sb()
-    try:
-        sb.table("calendario").delete().eq("id", evento_id).execute()
-    except:
-        pass
+    """Usa service role key per le query."""
+    url = st.secrets["SUPABASE_URL"]
+    service_key = st.secrets["SUPABASE_SERVICE_KEY"]
+    return create_client(url, service_key)
 
 # ── AUTH ──────────────────────────────────────────────
 
@@ -201,33 +35,6 @@ def crea_utente_profilo(user_id, nome, cognome, email, ruolo):
         return None
     except Exception as e:
         return str(e)
-
-def followup_oggi():
-    sb = get_sb()
-    try:
-        from datetime import date
-        oggi = date.today().isoformat()
-        res = sb.table("diario").select(
-            "*, clienti(nome, cognome, ragione_sociale, tipo)"
-        ).eq("followup_fatto", False).eq("followup_data", oggi).execute()
-        return res.data or []
-    except:
-        return []
-
-def followup_prossimi7():
-    sb = get_sb()
-    try:
-        from datetime import date, timedelta
-        domani = (date.today() + timedelta(days=1)).isoformat()
-        tra7 = (date.today() + timedelta(days=7)).isoformat()
-        res = sb.table("diario").select(
-            "*, clienti(nome, cognome, ragione_sociale, tipo)"
-        ).eq("followup_fatto", False).gte(
-            "followup_data", domani
-        ).lte("followup_data", tra7).execute()
-        return res.data or []
-    except:
-        return []
 
 def lista_utenti():
     sb = get_sb()
@@ -337,16 +144,28 @@ def elimina_voce_diario(voce_id):
     except:
         pass
 
-def followup_in_scadenza(user_id=None):
+def followup_oggi():
+    sb = get_sb()
+    try:
+        from datetime import date
+        oggi = date.today().isoformat()
+        res = sb.table("diario").select(
+            "*, clienti(nome, cognome, ragione_sociale, tipo)"
+        ).eq("followup_fatto", False).eq("followup_data", oggi).execute()
+        return res.data or []
+    except:
+        return []
+
+def followup_prossimi7():
     sb = get_sb()
     try:
         from datetime import date, timedelta
-        oggi = date.today().isoformat()
+        domani = (date.today() + timedelta(days=1)).isoformat()
         tra7 = (date.today() + timedelta(days=7)).isoformat()
         res = sb.table("diario").select(
             "*, clienti(nome, cognome, ragione_sociale, tipo)"
         ).eq("followup_fatto", False).gte(
-            "followup_data", oggi
+            "followup_data", domani
         ).lte("followup_data", tra7).execute()
         return res.data or []
     except:
@@ -539,5 +358,124 @@ def segna_come_letto(messaggio_id):
         sb.table("messaggi").update(
             {"letto": True}
         ).eq("id", messaggio_id).execute()
+    except:
+        pass
+
+# ── CALENDARIO ────────────────────────────────────────
+
+def get_autorizzazioni_calendario(utente_id):
+    sb = get_sb()
+    try:
+        res = sb.table("calendario_autorizzazioni").select(
+            "*, proprietario:utenti!calendario_autorizzazioni_calendario_di_fkey"
+            "(id, nome, cognome)"
+        ).eq("utente_id", utente_id).execute()
+        return res.data or []
+    except:
+        return []
+
+def get_calendari_visibili(utente_id):
+    sb = get_sb()
+    try:
+        res = sb.table("calendario_autorizzazioni").select(
+            "calendario_di"
+        ).eq("utente_id", utente_id).eq("puo_vedere", True).execute()
+        ids = [r["calendario_di"] for r in (res.data or [])]
+        if utente_id not in ids:
+            ids.append(utente_id)
+        return ids
+    except:
+        return [utente_id]
+
+def get_calendari_modificabili(utente_id):
+    sb = get_sb()
+    try:
+        res = sb.table("calendario_autorizzazioni").select(
+            "calendario_di"
+        ).eq("utente_id", utente_id).eq("puo_modificare", True).execute()
+        ids = [r["calendario_di"] for r in (res.data or [])]
+        if utente_id not in ids:
+            ids.append(utente_id)
+        return ids
+    except:
+        return [utente_id]
+
+def salva_autorizzazione_calendario(utente_id, calendario_di, puo_vedere, puo_modificare):
+    sb = get_sb()
+    try:
+        sb.table("calendario_autorizzazioni").upsert({
+            "utente_id": utente_id,
+            "calendario_di": calendario_di,
+            "puo_vedere": puo_vedere,
+            "puo_modificare": puo_modificare,
+        }, on_conflict="utente_id,calendario_di").execute()
+        return None
+    except Exception as e:
+        return str(e)
+
+def elimina_autorizzazione_calendario(utente_id, calendario_di):
+    sb = get_sb()
+    try:
+        sb.table("calendario_autorizzazioni").delete().eq(
+            "utente_id", utente_id
+        ).eq("calendario_di", calendario_di).execute()
+        return None
+    except Exception as e:
+        return str(e)
+
+def eventi_del_mese_multi(anno, mese, utenti_ids):
+    sb = get_sb()
+    try:
+        import calendar as cal_lib
+        primo = f"{anno}-{mese:02d}-01"
+        ultimo_giorno = cal_lib.monthrange(anno, mese)[1]
+        ultimo = f"{anno}-{mese:02d}-{ultimo_giorno}T23:59:59"
+        res = sb.table("calendario").select(
+            "*, proprietario:utenti!calendario_proprietario_id_fkey(id, nome, cognome)"
+        ).in_("proprietario_id", utenti_ids).gte(
+            "data_inizio", primo
+        ).lte("data_inizio", ultimo).execute()
+        return res.data or []
+    except:
+        return []
+
+def eventi_oggi_multi(utenti_ids):
+    sb = get_sb()
+    try:
+        from datetime import date
+        oggi = date.today().isoformat()
+        res = sb.table("calendario").select(
+            "*, proprietario:utenti!calendario_proprietario_id_fkey(id, nome, cognome)"
+        ).in_("proprietario_id", utenti_ids).gte(
+            "data_inizio", f"{oggi}T00:00:00"
+        ).lte(
+            "data_inizio", f"{oggi}T23:59:59"
+        ).order("data_inizio").execute()
+        return res.data or []
+    except:
+        return []
+
+def crea_evento(dati, user_id):
+    sb = get_sb()
+    try:
+        dati["creato_da"] = user_id
+        res = sb.table("calendario").insert(dati).execute()
+        return res.data[0] if res.data else None
+    except:
+        return None
+
+def aggiorna_evento(evento_id, dati):
+    sb = get_sb()
+    try:
+        from datetime import datetime
+        dati["updated_at"] = datetime.utcnow().isoformat()
+        sb.table("calendario").update(dati).eq("id", evento_id).execute()
+    except:
+        pass
+
+def elimina_evento(evento_id):
+    sb = get_sb()
+    try:
+        sb.table("calendario").delete().eq("id", evento_id).execute()
     except:
         pass
