@@ -234,6 +234,7 @@ def _vista_calendario(utente, anno, mese, ids_visibili, ids_modificabili):
                     nome_propr = f"{propr.get('nome','')} {propr.get('cognome','')}".strip()
                     puo_mod = e.get("proprietario_id") in ids_modificabili
 
+                desc_html = f"<div style='font-size:11px;color:#555;margin-top:4px;'>{e['descrizione']}</div>" if e.get('descrizione') else ''
                 st.markdown(
                         f"<div style='background:white;border:1px solid #eaeaf0;"
                         f"border-left:4px solid {colore};border-radius:8px;"
@@ -244,7 +245,7 @@ def _vista_calendario(utente, anno, mese, ids_visibili, ids_modificabili):
                         f"{e.get('tipo','').upper()}"
                         f"{' · ' + e['luogo'] if e.get('luogo') else ''}"
                         f" · {nome_propr}</div>"
-                        f"{f'<div style=\"font-size:11px;color:#555;margin-top:4px;\">{e[\"descrizione\"]}</div>' if e.get('descrizione') else ''}"
+                        f"{desc_html}"
                         f"</div>",
                         unsafe_allow_html=True
                     )
