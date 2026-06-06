@@ -109,9 +109,9 @@ def _scheda_evento(ev, utente, colore_stato):
     st.markdown("---")
 
     # Tabs scheda evento
-    tab_collab, tab_ore, tab_allegati, tab_modifica = st.tabs([
-        "Collaboratori", "Ore prestate", "Allegati", "Modifica"
-    ])
+    tab_collab, tab_ore, tab_allegati, tab_beo, tab_modifica = st.tabs([
+    "Collaboratori", "Ore prestate", "Allegati", "BEO", "Modifica"
+])
 
     with tab_collab:
         _gestione_collaboratori(ev, utente)
