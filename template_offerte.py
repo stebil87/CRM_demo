@@ -5,24 +5,17 @@ from db import (
     aggiorna_template, elimina_template,
     get_condivisioni_template, condividi_template,
     rimuovi_condivisione_template, lista_utenti
-)
-from auth import can_edit
-
-COLORI_VALUTA = ["CHF", "EUR", "USD"]
-
 def pagina_template(utente):
     st.title("Template offerte")
     st.markdown("---")
 
-    tab_lista, tab_nuovo = st.tabs(["I miei template", "Nuovo template"])
+    tab_nuovo, tab_lista = st.tabs(["Nuovo template", "I miei template"])
 
     with tab_nuovo:
         _form_nuovo_template(utente)
 
     with tab_lista:
         _lista_template(utente)
-
-
 def _lista_template(utente):
     from db import lista_template as _lt
     templates = _lt(utente["id"])
