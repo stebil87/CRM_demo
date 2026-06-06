@@ -3,13 +3,13 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 from datetime import datetime
+import random
 from db import (
     stats_dashboard, followup_oggi, followup_prossimi7,
     eventi_oggi_multi, get_calendari_visibili,
     lista_eventi_catering
 )
 from auth import can_edit
-import random
 
 
 def is_event_manager(utente):
@@ -17,8 +17,6 @@ def is_event_manager(utente):
 
 
 def _saluto(utente):
-    from datetime import datetime
-    import random
     ora = datetime.now().hour
     nome = utente.get("nome", "")
 
@@ -33,16 +31,12 @@ def _saluto(utente):
             f"Buongiorno {nome}! Le grandi cose non si fanno con la forza, ma con la perseveranza.",
             f"Buongiorno {nome}! Inizia la giornata con il sorriso — il resto viene da sé.",
             f"Buongiorno {nome}! Non aspettare il momento perfetto, prendi il momento e rendilo perfetto.",
-            f"Buongiorno {nome}! La fortuna aiuta gli audaci — e chi arriva in ufficio con le idee chiare.",
             f"Buongiorno {nome}! Oggi è un buon giorno per fare qualcosa di cui andare fieri.",
             f"Buongiorno {nome}! Il talento vince le partite, ma il lavoro di squadra vince i campionati.",
-            f"Buongiorno {nome}! Ogni giornata lavorativa è un'opportunità travestita da impegno.",
             f"Buongiorno {nome}! La qualità non è un atto, è un'abitudine.",
-            f"Buongiorno {nome}! Chi non risica non rosica — buona giornata di lavoro.",
             f"Buongiorno {nome}! Il segreto del successo è iniziare.",
             f"Buongiorno {nome}! Non rimandare a domani ciò che puoi fare con entusiasmo oggi.",
             f"Buongiorno {nome}! Un passo alla volta porta lontano.",
-            f"Buongiorno {nome}! La determinazione di oggi è il risultato di domani.",
             f"Buongiorno {nome}! Sorridi — sei già avanti rispetto a chi ancora dorme.",
         ]
     elif 12 <= ora < 14:
@@ -50,13 +44,10 @@ def _saluto(utente):
             f"Buon pranzo {nome}! Ricordati: anche i grandi leader fanno pausa.",
             f"Buon pranzo {nome}! Il corpo si ricarica, la mente si prepara al pomeriggio.",
             f"Buon pranzo {nome}! Una pausa ben vissuta vale quanto un'ora di lavoro.",
-            f"Buon pranzo {nome}! Chi si ferma a riflettere arriva più lontano di chi corre sempre.",
             f"Buon pranzo {nome}! Stacca la spina almeno mentre mangi — te lo meriti.",
             f"Buon pranzo {nome}! Il lavoro aspetta, il cibo si raffredda.",
-            f"Buon pranzo {nome}! La pausa pranzo è il momento più sottovalutato della giornata lavorativa.",
             f"Buon pranzo {nome}! Anche le menti più brillanti hanno bisogno di carburante.",
             f"Buon pranzo {nome}! Metti il telefono giù, almeno per i prossimi venti minuti.",
-            f"Buon pranzo {nome}! Una mente riposata è più produttiva di una affaticata.",
         ]
     elif 14 <= ora < 18:
         saluti = [
@@ -67,12 +58,7 @@ def _saluto(utente):
             f"Buon pomeriggio {nome}! Le ore del pomeriggio sono quelle in cui si chiudono le trattative migliori.",
             f"Buon pomeriggio {nome}! Non è stanchezza, è esperienza che si accumula.",
             f"Buon pomeriggio {nome}! Ogni telefonata può essere quella che cambia la giornata.",
-            f"Buon pomeriggio {nome}! Chi persevera vince — e tu stai perseverando.",
-            f"Buon pomeriggio {nome}! Le migliori idee arrivano nel pomeriggio, dicono gli ottimisti.",
-            f"Buon pomeriggio {nome}! Concentrazione, determinazione, risultati.",
             f"Buon pomeriggio {nome}! Il dettaglio fa la differenza tra buono e eccellente.",
-            f"Buon pomeriggio {nome}! Ogni piccolo passo in avanti è comunque un passo in avanti.",
-            f"Buon pomeriggio {nome}! La qualità del lavoro si vede anche nelle ore piccole.",
             f"Buon pomeriggio {nome}! Sei a buon punto — continua così.",
         ]
     elif 18 <= ora < 22:
@@ -81,53 +67,33 @@ def _saluto(utente):
             f"Buonasera {nome}! La dedizione che mostri oggi costruisce il successo di domani.",
             f"Buonasera {nome}! Chi lavora con passione non si accorge delle ore.",
             f"Buonasera {nome}! Quasi fatta — dai il meglio fino alla fine.",
-            f"Buonasera {nome}! Il lavoro di questa sera è il fondamento del risultato di domani.",
             f"Buonasera {nome}! La costanza è la virtù più rara e più preziosa.",
             f"Buonasera {nome}! Ancora un po' e poi il meritato riposo.",
             f"Buonasera {nome}! Chi finisce bene la giornata dorme con la coscienza tranquilla.",
-            f"Buonasera {nome}! Il sacrificio di oggi è l'orgoglio di domani.",
-            f"Buonasera {nome}! La professionalità non ha orari — ma ha i suoi premi.",
         ]
     else:
         saluti = [
             f"Ciao {nome}! A quest'ora o sei un genio o hai una scadenza domani mattina.",
             f"Ciao {nome}! Il CRM è aperto 24 ore — ma tu avresti tutto il diritto di dormire.",
             f"Ciao {nome}! Chi lavora di notte vede le stelle — e anche i dati del CRM.",
-            f"Ciao {nome}! La notte porta consiglio, si dice. Tu stai raccogliendo molto consiglio.",
-            f"Ciao {nome}! Anche i migliori si fermano a dormire — prendilo in considerazione.",
             f"Ciao {nome}! Notte fonda, mente lucida — o almeno ci proviamo.",
-            f"Ciao {nome}! Il silenzio della notte è perfetto per concentrarsi. O per andare a letto.",
+            f"Ciao {nome}! Anche i migliori si fermano a dormire — prendilo in considerazione.",
         ]
 
     testo = random.choice(saluti)
-
     st.markdown(
-        f"""
-        <div style='
-            background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%);
-            border-radius: 12px;
-            padding: 24px 32px;
-            margin-bottom: 24px;
-            box-shadow: 0 4px 16px rgba(26,26,46,0.15);
-        '>
-            <div style='
-                font-size: 20px;
-                font-weight: 700;
-                color: white;
-                letter-spacing: -0.3px;
-                line-height: 1.4;
-                margin-bottom: 6px;
-            '>{testo}</div>
-            <div style='
-                font-size: 11px;
-                color: rgba(255,255,255,0.35);
-                letter-spacing: 0.8px;
-                text-transform: uppercase;
-            '>1908 Group SA — Piattaforma CRM</div>
-        </div>
-        """,
+        f"<div style='background:linear-gradient(135deg,#1a1a2e 0%,#0f3460 100%);"
+        f"border-radius:12px;padding:24px 32px;margin-bottom:24px;"
+        f"box-shadow:0 4px 16px rgba(26,26,46,0.15);'>"
+        f"<div style='font-size:20px;font-weight:700;color:white;"
+        f"letter-spacing:-0.3px;line-height:1.4;margin-bottom:6px;'>{testo}</div>"
+        f"<div style='font-size:11px;color:rgba(255,255,255,0.35);"
+        f"letter-spacing:0.8px;text-transform:uppercase;'>"
+        f"1908 Group SA — Piattaforma CRM</div>"
+        f"</div>",
         unsafe_allow_html=True
     )
+
 
 def pagina_dashboard(utente):
     st.title("Dashboard")
@@ -139,8 +105,10 @@ def pagina_dashboard(utente):
     ids_visibili = get_calendari_visibili(utente["id"])
     ev_oggi = eventi_oggi_multi(tuple(ids_visibili))
 
-    offerte_df = pd.DataFrame(stats["offerte_data"]) if stats["offerte_data"] else pd.DataFrame()
-    clienti_df = pd.DataFrame(stats["clienti_data"]) if stats["clienti_data"] else pd.DataFrame()
+    offerte_df = pd.DataFrame(
+        stats["offerte_data"]) if stats["offerte_data"] else pd.DataFrame()
+    clienti_df = pd.DataFrame(
+        stats["clienti_data"]) if stats["clienti_data"] else pd.DataFrame()
 
     valore_chiuso = offerte_df[
         offerte_df["stato"] == "accettata"
@@ -160,7 +128,13 @@ def pagina_dashboard(utente):
 
     st.markdown("---")
 
-    # ── NOTE RAPIDE + AVVISI EVENTI ──
+    # ── NOTE + AVVISI ──
+    # inbox_widget disattivato — attivare quando pronto
+    # from inbox_widget import widget_inbox
+    # col_note, col_inbox, col_avvisi = st.columns(3)
+    # with col_inbox:
+    #     widget_inbox(utente)
+
     col_note, col_avvisi = st.columns(2)
 
     with col_note:
@@ -314,13 +288,13 @@ def pagina_dashboard(utente):
             fig = px.pie(
                 conteggio, values="Numero", names="Stato",
                 title="Clienti per stato",
-                color_discrete_sequence=["#1a1a2e","#3a3a6e","#6a6aae","#aaaacc","#e0e0f0"],
+                color_discrete_sequence=[
+                    "#1a1a2e","#3a3a6e","#6a6aae","#aaaacc","#e0e0f0"],
                 hole=0.5
             )
             fig.update_layout(
                 height=240, margin=dict(t=36, b=0, l=0, r=0),
-                showlegend=True,
-                legend=dict(font=dict(size=10)),
+                showlegend=True, legend=dict(font=dict(size=10)),
                 title_font_size=12
             )
             fig.update_traces(textfont_size=10)
@@ -334,14 +308,13 @@ def pagina_dashboard(utente):
             off_count.columns = ["Stato", "Numero"]
             fig2 = px.bar(
                 off_count, x="Stato", y="Numero",
-                title="Offerte per stato",
-                color="Stato",
-                color_discrete_sequence=["#1a1a2e","#3a3a6e","#6a6aae","#aaaacc","#e94560"]
+                title="Offerte per stato", color="Stato",
+                color_discrete_sequence=[
+                    "#1a1a2e","#3a3a6e","#6a6aae","#aaaacc","#e94560"]
             )
             fig2.update_layout(
                 height=240, showlegend=False,
-                margin=dict(t=36, b=0, l=0, r=0),
-                title_font_size=12,
+                margin=dict(t=36, b=0, l=0, r=0), title_font_size=12,
                 xaxis=dict(tickfont=dict(size=10)),
                 yaxis=dict(tickfont=dict(size=10))
             )
@@ -356,14 +329,13 @@ def pagina_dashboard(utente):
             valore_per_stato.columns = ["Stato", "Valore"]
             fig3 = px.bar(
                 valore_per_stato, x="Stato", y="Valore",
-                title="Valore per stato (CHF)",
-                color="Stato",
-                color_discrete_sequence=["#1a1a2e","#3a3a6e","#6a6aae","#aaaacc","#e94560"]
+                title="Valore per stato (CHF)", color="Stato",
+                color_discrete_sequence=[
+                    "#1a1a2e","#3a3a6e","#6a6aae","#aaaacc","#e94560"]
             )
             fig3.update_layout(
                 height=240, showlegend=False,
-                margin=dict(t=36, b=0, l=0, r=0),
-                title_font_size=12,
+                margin=dict(t=36, b=0, l=0, r=0), title_font_size=12,
                 xaxis=dict(tickfont=dict(size=10)),
                 yaxis=dict(tickfont=dict(size=10))
             )
@@ -407,8 +379,7 @@ def pagina_dashboard(utente):
                     media["Media CHF"] = media["Media CHF"].round(0)
                     st.dataframe(
                         media.sort_values("Media CHF", ascending=False),
-                        use_container_width=True,
-                        hide_index=True
+                        use_container_width=True, hide_index=True
                     )
 
             st.markdown("---")
