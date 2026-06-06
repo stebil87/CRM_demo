@@ -234,7 +234,7 @@ def _vista_calendario(utente, anno, mese, ids_visibili, ids_modificabili):
                     nome_propr = f"{propr.get('nome','')} {propr.get('cognome','')}".strip()
                     puo_mod = e.get("proprietario_id") in ids_modificabili
 
-                  st.markdown(
+                st.markdown(
                         f"<div style='background:white;border:1px solid #eaeaf0;"
                         f"border-left:4px solid {colore};border-radius:8px;"
                         f"padding:12px 14px;margin-bottom:8px;'>"
