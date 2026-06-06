@@ -2,13 +2,13 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
-from db import ora_locale
 from datetime import datetime
 import random
 from db import (
     stats_dashboard, followup_oggi, followup_prossimi7,
     eventi_oggi_multi, get_calendari_visibili,
-    lista_eventi_catering
+    lista_eventi_catering, lista_messaggi_non_letti,
+    compleanni_in_arrivo
 )
 from auth import can_edit
 
@@ -18,7 +18,12 @@ def is_event_manager(utente):
 
 
 def _saluto(utente):
-    ora = ora_locale().hour
+    try:
+        import pytz
+        tz = pytz.timezone("Europe/Zurich")
+        ora = datetime.now(tz).hour
+    except:
+        ora = datetime.now().hour
     nome = utente.get("nome", "")
 
     if 5 <= ora < 12:
@@ -127,13 +132,49 @@ def pagina_dashboard(utente):
     col2.metric("Chiuso", f"CHF {valore_chiuso:,.0f}")
     col3.metric("Tasso chiusura", f"{tasso_chiusura}%")
 
+    # ── BANNER MESSAGGI NON LETTI ──
+    non_letti_dash = lista_messaggi_non_letti(utente["id"])
+    if non_letti_dash:
+        st.markdown("<br>", unsafe_allow_html=True)
+        n = len(non_letti_dash)
+        mittenti = []
+        for m in non_letti_dash[:3]:
+            mitt = m.get("mittente") or {}
+            nome_mitt = f"{mitt.get('nome', '')}".strip()
+            if nome_mitt and nome_mitt not in mittenti:
+                mittenti.append(nome_mitt)
+        mittenti_str = ", ".join(mittenti)
+        if len(non_letti_dash) > 3:
+            mittenti_str += " e altri"
+
+        col_msg, col_btn = st.columns([5, 1])
+        with col_msg:
+            st.markdown(
+                f"<div style='background:white;border:1px solid #eaeaf0;"
+                f"border-left:4px solid #e94560;border-radius:8px;"
+                f"padding:12px 18px;display:flex;align-items:center;gap:12px;'>"
+                f"<span style='font-size:20px;'>✉</span>"
+                f"<div>"
+                f"<div style='font-size:13px;font-weight:700;color:#1a1a2e;'>"
+                f"{'Hai' if n == 1 else 'Hai'} {n} "
+                f"{'messaggio non letto' if n == 1 else 'messaggi non letti'}</div>"
+                f"<div style='font-size:11px;color:#888;margin-top:2px;'>"
+                f"Da: {mittenti_str}</div>"
+                f"</div>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+        with col_btn:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("Vai ai messaggi", key="dash_vai_msg",
+                         use_container_width=True):
+                st.session_state.pagina = "messaggi"
+                st.rerun()
+
     st.markdown("---")
 
     # ── COMPLEANNI IN ARRIVO ──
-    from db import compleanni_in_arrivo
     compleanni = compleanni_in_arrivo(giorni=30)
-
-    st.markdown("---")
     st.markdown(
         "<div style='display:flex;align-items:center;gap:10px;margin-bottom:12px;'>"
         "<span style='font-size:13px;font-weight:600;color:#1a1a2e;'>"
@@ -147,7 +188,6 @@ def pagina_dashboard(utente):
         "</div>",
         unsafe_allow_html=True
     )
-
     if not compleanni:
         st.markdown(
             "<div style='background:#f4f4f8;border:1px solid #eaeaf0;"
@@ -161,7 +201,6 @@ def pagina_dashboard(utente):
             nome = f"{c.get('nome','')} {c.get('cognome','')}".strip()
             giorni_m = c["giorni_mancanti"]
             compleanno = c["compleanno"]
-
             if giorni_m == 0:
                 label_giorni = "Oggi!"
                 colore = "#e94560"
@@ -178,7 +217,6 @@ def pagina_dashboard(utente):
                 label_giorni = f"Tra {giorni_m} giorni"
                 colore = "#0f3460"
                 bg = "#f0f4ff"
-
             with cols[i]:
                 st.markdown(
                     f"<div style='background:{bg};border:1px solid #eaeaf0;"
@@ -196,6 +234,8 @@ def pagina_dashboard(utente):
                 if st.button("Apri scheda", key=f"bday_{c['id']}"):
                     st.session_state.pagina = "clienti"
                     st.rerun()
+
+    st.markdown("---")
 
     # ── NOTE + INBOX PLACEHOLDER + AVVISI ──
     col_note, col_inbox, col_avvisi = st.columns(3)
@@ -241,6 +281,9 @@ def pagina_dashboard(utente):
                     if st.button("Gestisci", key=f"dash_ev_{ev['id']}"):
                         st.session_state.pagina = "eventi"
                         st.rerun()
+
+    st.markdown("---")
+
     # ── AGENDA + FOLLOW-UP ──
     col_ev, col_fu_oggi, col_fu_prox = st.columns(3)
 
@@ -362,7 +405,7 @@ def pagina_dashboard(utente):
                 conteggio, values="Numero", names="Stato",
                 title="Clienti per stato",
                 color_discrete_sequence=[
-                    "#1a1a2e","#3a3a6e","#6a6aae","#aaaacc","#e0e0f0"],
+                    "#1a1a2e", "#3a3a6e", "#6a6aae", "#aaaacc", "#e0e0f0"],
                 hole=0.5
             )
             fig.update_layout(
@@ -383,7 +426,7 @@ def pagina_dashboard(utente):
                 off_count, x="Stato", y="Numero",
                 title="Offerte per stato", color="Stato",
                 color_discrete_sequence=[
-                    "#1a1a2e","#3a3a6e","#6a6aae","#aaaacc","#e94560"]
+                    "#1a1a2e", "#3a3a6e", "#6a6aae", "#aaaacc", "#e94560"]
             )
             fig2.update_layout(
                 height=240, showlegend=False,
@@ -404,7 +447,7 @@ def pagina_dashboard(utente):
                 valore_per_stato, x="Stato", y="Valore",
                 title="Valore per stato (CHF)", color="Stato",
                 color_discrete_sequence=[
-                    "#1a1a2e","#3a3a6e","#6a6aae","#aaaacc","#e94560"]
+                    "#1a1a2e", "#3a3a6e", "#6a6aae", "#aaaacc", "#e94560"]
             )
             fig3.update_layout(
                 height=240, showlegend=False,
@@ -437,7 +480,7 @@ def pagina_dashboard(utente):
                         y=funnel_df["Fase"],
                         x=funnel_df["Numero"],
                         textinfo="value+percent initial",
-                        marker=dict(color=["#1a1a2e","#3a3a6e","#6a6aae"])
+                        marker=dict(color=["#1a1a2e", "#3a3a6e", "#6a6aae"])
                     ))
                     fig_f.update_layout(
                         height=220, margin=dict(t=10, b=0, l=0, r=0))
@@ -479,7 +522,7 @@ def pagina_dashboard(utente):
                 riepilogo = {
                     "Clienti prospect": len(clienti_df[clienti_df["stato"] == "prospect"]) if not clienti_df.empty and "stato" in clienti_df.columns else 0,
                     "Clienti attivi": len(clienti_df[clienti_df["stato"] == "attivo"]) if not clienti_df.empty and "stato" in clienti_df.columns else 0,
-                    "Offerte aperte": len(offerte_df[offerte_df["stato"].isin(["bozza","inviata"])]) if not offerte_df.empty and "stato" in offerte_df.columns else 0,
+                    "Offerte aperte": len(offerte_df[offerte_df["stato"].isin(["bozza", "inviata"])]) if not offerte_df.empty and "stato" in offerte_df.columns else 0,
                     "Offerte vinte": len(offerte_df[offerte_df["stato"] == "accettata"]) if not offerte_df.empty and "stato" in offerte_df.columns else 0,
                     "Offerte perse": len(offerte_df[offerte_df["stato"] == "rifiutata"]) if not offerte_df.empty and "stato" in offerte_df.columns else 0,
                     "Valore chiuso": f"CHF {valore_chiuso:,.0f}",
@@ -496,24 +539,3 @@ def pagina_dashboard(utente):
                         + str(v) + "</span>",
                         unsafe_allow_html=True
                     )
-
-    _mostra_notifica_messaggi(utente)
-
-
-def _mostra_notifica_messaggi(utente):
-    from db import lista_messaggi_non_letti
-    if st.session_state.get("notifiche_disattivate", False):
-        return
-    non_letti = lista_messaggi_non_letti(utente["id"])
-    if not non_letti:
-        return
-    gia_notificati = st.session_state.get("msg_notificati", set())
-    nuovi = [m for m in non_letti if m["id"] not in gia_notificati]
-    if not nuovi:
-        return
-    for m in nuovi:
-        mitt = m.get("mittente") or {}
-        nome_mitt = f"{mitt.get('nome','')} {mitt.get('cognome','')}".strip() or "Utente"
-        st.toast(f"Nuovo messaggio da {nome_mitt}: {m.get('oggetto','')}")
-        gia_notificati.add(m["id"])
-    st.session_state.msg_notificati = gia_notificati
