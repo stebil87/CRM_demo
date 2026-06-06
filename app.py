@@ -33,31 +33,15 @@ html, body, [class*="css"] {
 footer { display: none !important; }
 #MainMenu { visibility: hidden; }
 
-[data-testid="stSidebar"] {
+/* ── SIDEBAR FISSA ── */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0d0d1a 0%, #1a1a2e 60%, #16213e 100%) !important;
+    border-right: 1px solid #2a2a4a !important;
     min-width: 260px !important;
     width: 260px !important;
-}
-
-.login-label {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-    color: #aaaabc;
-    text-align: center;
-    margin-bottom: 24px;
-}
-.login-footer {
-    font-size: 11px;
-    color: #c0c0cc;
-    text-align: center;
-    margin-top: 28px;
-    letter-spacing: 0.3px;
-}
-
-section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0d0d1a 0%, #1a1a2e 60%, #16213e 100%);
-    border-right: 1px solid #2a2a4a;
+    transform: none !important;
+    visibility: visible !important;
+    display: block !important;
 }
 section[data-testid="stSidebar"] * {
     color: #e8e8f0 !important;
@@ -83,6 +67,38 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     padding-left: 13px;
 }
 
+/* Nasconde freccia chiudi sidebar */
+[data-testid="collapsedControl"] {
+    display: none !important;
+}
+button[data-testid="baseButton-header"] {
+    display: none !important;
+}
+
+/* Bottone fisso riapri menu */
+.btn-apri-menu {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 999999;
+    background: #1a1a2e;
+    color: white !important;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.3px;
+    transition: background 0.2s ease;
+}
+.btn-apri-menu:hover {
+    background: #2d2d5e !important;
+}
+
+/* ── MAIN ── */
 .main .block-container {
     padding: 2rem 2.5rem;
     max-width: 1400px;
@@ -120,6 +136,9 @@ h3 { font-size: 14px !important; font-weight: 600 !important; color: #1a1a2e !im
     color: #1a1a2e !important;
     border: 1px solid #dddde8;
 }
+.stButton > button[kind="secondary"]:hover {
+    background: #eaeaf4 !important;
+}
 
 .stTextInput > div > div > input,
 .stTextArea > div > div > textarea,
@@ -129,6 +148,7 @@ h3 { font-size: 14px !important; font-weight: 600 !important; color: #1a1a2e !im
     font-size: 13px;
     color: #1a1a2e;
     background: #fafafa;
+    transition: border 0.2s;
 }
 .stTextInput > div > div > input:focus,
 .stTextArea > div > div > textarea:focus {
@@ -165,6 +185,9 @@ h3 { font-size: 14px !important; font-weight: 600 !important; color: #1a1a2e !im
     font-weight: 500;
     color: #1a1a2e;
     padding: 12px 16px;
+}
+.streamlit-expanderHeader:hover {
+    background: #f0f0f8;
 }
 .streamlit-expanderContent {
     border: 1px solid #eaeaf0;
@@ -205,6 +228,12 @@ hr { border: none; border-top: 1px solid #eaeaf0; margin: 16px 0; }
     font-size: 13px;
 }
 
+.stDataFrame {
+    border: 1px solid #eaeaf0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
 .sidebar-user {
     background: rgba(255,255,255,0.06);
     border-radius: 8px;
@@ -219,9 +248,46 @@ hr { border: none; border-top: 1px solid #eaeaf0; margin: 16px 0; }
     color: #666888 !important;
     padding: 14px 16px 6px 16px;
 }
+
+.login-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: #aaaabc;
+    text-align: center;
+    margin-bottom: 24px;
+}
+.login-footer {
+    font-size: 11px;
+    color: #c0c0cc;
+    text-align: center;
+    margin-top: 28px;
+    letter-spacing: 0.3px;
+}
 </style>
 """, unsafe_allow_html=True)
 
+# ── BOTTONE FISSO RIAPRI MENU ──────────────────────────────────────────────
+st.markdown("""
+<button class="btn-apri-menu" onclick="
+    const sidebar = window.parent.document.querySelector('[data-testid=stSidebar]');
+    const collapsed = window.parent.document.querySelector('[data-testid=collapsedControl]');
+    if (sidebar) {
+        sidebar.style.display = 'block';
+        sidebar.style.visibility = 'visible';
+        sidebar.style.transform = 'translateX(0px)';
+        sidebar.style.width = '260px';
+        sidebar.style.minWidth = '260px';
+        sidebar.style.position = 'relative';
+    }
+    if (collapsed) {
+        collapsed.click();
+    }
+">&#9776; Menu</button>
+""", unsafe_allow_html=True)
+
+# ── SESSION STATE ──────────────────────────────────────────────────────────
 for k, v in {
     "pagina": "dashboard",
     "cliente_id": None,
@@ -233,6 +299,7 @@ for k, v in {
     if k not in st.session_state:
         st.session_state[k] = v
 
+# ── AUTH ───────────────────────────────────────────────────────────────────
 utente = check_auth()
 
 if not utente:
@@ -249,7 +316,10 @@ if not utente:
                 unsafe_allow_html=True
             )
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("<p class='login-label'>Accesso riservato</p>", unsafe_allow_html=True)
+        st.markdown(
+            "<p class='login-label'>Accesso riservato</p>",
+            unsafe_allow_html=True
+        )
         pagina_login()
         st.markdown(
             "<p class='login-footer'>1908 Group SA &nbsp;·&nbsp; "
@@ -258,9 +328,11 @@ if not utente:
         )
     st.stop()
 
+# ── MESSAGGI NON LETTI ─────────────────────────────────────────────────────
 non_letti = lista_messaggi_non_letti(utente["id"])
 n_non_letti = len(non_letti)
 
+# ── SIDEBAR ────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
     try:
@@ -268,7 +340,10 @@ with st.sidebar:
     except:
         st.markdown("**1908 Group SA**")
 
-    st.markdown("<hr style='border-color:#2a2a4a;margin:16px 0;'>", unsafe_allow_html=True)
+    st.markdown(
+        "<hr style='border-color:#2a2a4a;margin:16px 0;'>",
+        unsafe_allow_html=True
+    )
 
     st.markdown(f"""
     <div class="sidebar-user">
@@ -287,7 +362,10 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="sidebar-nav-label">Navigazione</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="sidebar-nav-label">Navigazione</div>',
+        unsafe_allow_html=True
+    )
 
     label_msg = f"Messaggi  ({n_non_letti})" if n_non_letti > 0 else "Messaggi"
 
@@ -311,7 +389,10 @@ with st.sidebar:
                 st.session_state.cliente_nome = None
             st.rerun()
 
-    st.markdown("<hr style='border-color:#2a2a4a;margin:16px 0;'>", unsafe_allow_html=True)
+    st.markdown(
+        "<hr style='border-color:#2a2a4a;margin:16px 0;'>",
+        unsafe_allow_html=True
+    )
 
     notifiche_on = not st.session_state.get("notifiche_disattivate", False)
     label_notifiche = "Notifiche: ON" if notifiche_on else "Notifiche: OFF"
@@ -322,6 +403,7 @@ with st.sidebar:
     if st.button("Esci", key="nav_logout", use_container_width=True):
         do_logout()
 
+# ── BREADCRUMB ─────────────────────────────────────────────────────────────
 p = st.session_state.pagina
 breadcrumb_map = {
     "dashboard":   "Dashboard",
@@ -343,6 +425,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# ── ROUTING ────────────────────────────────────────────────────────────────
 if p == "dashboard":
     pagina_dashboard(utente)
 elif p == "clienti":
