@@ -128,6 +128,62 @@ def pagina_dashboard(utente):
 
     st.markdown("---")
 
+    # ── COMPLEANNI IN ARRIVO ──
+    from db import compleanni_in_arrivo
+    compleanni = compleanni_in_arrivo(giorni=30)
+    if compleanni:
+        st.markdown("---")
+        st.markdown(
+            "<div style='display:flex;align-items:center;gap:10px;margin-bottom:12px;'>"
+            "<span style='font-size:13px;font-weight:600;color:#1a1a2e;'>"
+            "Compleanni in arrivo</span>"
+            "<span style='background:#fff3cd;color:#856404;font-size:10px;"
+            "font-weight:600;padding:2px 8px;border-radius:10px;'>"
+            f"{len(compleanni)} nei prossimi 30 giorni</span>"
+            "</div>",
+            unsafe_allow_html=True
+        )
+        cols = st.columns(min(len(compleanni), 4))
+        for i, c in enumerate(compleanni[:4]):
+            nome = f"{c.get('nome','')} {c.get('cognome','')}".strip()
+            giorni_m = c["giorni_mancanti"]
+            compleanno = c["compleanno"]
+
+            if giorni_m == 0:
+                label_giorni = "Oggi!"
+                colore = "#e94560"
+                bg = "#fff0f3"
+            elif giorni_m == 1:
+                label_giorni = "Domani"
+                colore = "#e94560"
+                bg = "#fff0f3"
+            elif giorni_m <= 7:
+                label_giorni = f"Tra {giorni_m} giorni"
+                colore = "#856404"
+                bg = "#fff8e1"
+            else:
+                label_giorni = f"Tra {giorni_m} giorni"
+                colore = "#0f3460"
+                bg = "#f0f4ff"
+
+            with cols[i]:
+                st.markdown(
+                    f"<div style='background:{bg};border:1px solid #eaeaf0;"
+                    f"border-left:4px solid {colore};border-radius:8px;"
+                    f"padding:12px 14px;'>"
+                    f"<div style='font-size:13px;font-weight:700;color:#1a1a2e;'>"
+                    f"{nome}</div>"
+                    f"<div style='font-size:11px;color:{colore};"
+                    f"font-weight:600;margin-top:4px;'>{label_giorni}</div>"
+                    f"<div style='font-size:10px;color:#aaa;margin-top:2px;'>"
+                    f"{compleanno[8:10]}/{compleanno[5:7]}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+                if st.button("Apri scheda", key=f"bday_{c['id']}"):
+                    st.session_state.pagina = "clienti"
+                    st.rerun()
+
     # ── NOTE + INBOX PLACEHOLDER + AVVISI ──
     col_note, col_inbox, col_avvisi = st.columns(3)
 
