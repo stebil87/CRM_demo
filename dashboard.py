@@ -5,9 +5,13 @@ import pandas as pd
 from datetime import datetime
 from db import (
     stats_dashboard, followup_oggi, followup_prossimi7,
-    eventi_oggi_multi, get_calendari_visibili
+    eventi_oggi_multi, get_calendari_visibili,
+    lista_eventi_catering
 )
 from auth import can_edit
+
+def is_event_manager(utente):
+    return utente and utente["ruolo"] in ("admin", "event_manager")
 
 def pagina_dashboard(utente):
     st.title("Dashboard")
@@ -39,6 +43,40 @@ def pagina_dashboard(utente):
 
     st.markdown("---")
 
+    # ── NOTE RAPIDE + AVVISI EVENTI ──
+    col_note, col_avvisi = st.columns(2)
+
+    with col_note:
+        from note_dashboard import widget_note
+        widget_note(utente)
+
+    with col_avvisi:
+        from eventi_catering import widget_avvisi_eventi
+        widget_avvisi_eventi(utente)
+
+        if is_event_manager(utente):
+            nuovi = lista_eventi_catering(solo_nuovo=True)
+            if nuovi:
+                st.markdown("**Nuovi eventi da gestire**")
+                for ev in nuovi:
+                    st.markdown(
+                        "<div style='background:white;border:1px solid #eaeaf0;"
+                        "border-left:4px solid #e94560;border-radius:8px;"
+                        "padding:10px 14px;margin-bottom:8px;'>"
+                        "<div style='font-size:13px;font-weight:600;'>"
+                        + ev["titolo"] +
+                        "</div>"
+                        "<div style='font-size:11px;color:#888;margin-top:3px;'>"
+                        + (ev.get("data_inizio") or "")[:10] +
+                        "</div></div>",
+                        unsafe_allow_html=True
+                    )
+                    if st.button("Gestisci", key=f"dash_ev_{ev['id']}"):
+                        st.session_state.pagina = "eventi"
+                        st.rerun()
+
+    st.markdown("---")
+
     # ── AGENDA + FOLLOW-UP ──
     col_ev, col_fu_oggi, col_fu_prox = st.columns(3)
 
@@ -48,7 +86,7 @@ def pagina_dashboard(utente):
             for e in ev_oggi:
                 try:
                     ora = datetime.fromisoformat(
-                        e["data_inizio"].replace("Z","")
+                        e["data_inizio"].replace("Z", "")
                     ).strftime("%H:%M")
                 except:
                     ora = ""
@@ -58,20 +96,21 @@ def pagina_dashboard(utente):
                     "chiamata":     "#533483",
                     "scadenza":     "#e94560",
                     "altro":        "#6a6aae",
-                }.get(e.get("tipo","altro"), "#1a1a2e")
+                }.get(e.get("tipo", "altro"), "#1a1a2e")
                 propr = e.get("proprietario") or {}
                 nome_propr = f"{propr.get('nome','')} {propr.get('cognome','')}".strip()
                 st.markdown(
-                    f"<div style='background:white;border:1px solid #eaeaf0;"
-                    f"border-left:3px solid {colore};border-radius:8px;"
-                    f"padding:10px 14px;margin-bottom:8px;'>"
-                    f"<div style='font-size:13px;font-weight:600;color:#1a1a2e;'>"
-                    f"{ora}&nbsp;&nbsp;{e['titolo']}</div>"
-                    f"<div style='font-size:11px;color:#888;margin-top:3px;'>"
-                    f"{e.get('tipo','').upper()}"
-                    f"{' · ' + e['luogo'] if e.get('luogo') else ''}"
-                    f"{' · ' + nome_propr if nome_propr else ''}"
-                    f"</div></div>",
+                    "<div style='background:white;border:1px solid #eaeaf0;"
+                    "border-left:3px solid " + colore + ";border-radius:8px;"
+                    "padding:10px 14px;margin-bottom:8px;'>"
+                    "<div style='font-size:13px;font-weight:600;color:#1a1a2e;'>"
+                    + ora + "&nbsp;&nbsp;" + e["titolo"] +
+                    "</div>"
+                    "<div style='font-size:11px;color:#888;margin-top:3px;'>"
+                    + e.get("tipo", "").upper()
+                    + (" · " + e["luogo"] if e.get("luogo") else "")
+                    + (" · " + nome_propr if nome_propr else "")
+                    + "</div></div>",
                     unsafe_allow_html=True
                 )
         else:
@@ -90,12 +129,15 @@ def pagina_dashboard(utente):
                 nome_cliente = cliente.get("ragione_sociale") or \
                     f"{cliente.get('nome','')} {cliente.get('cognome','')}".strip()
                 st.markdown(
-                    f"<div style='background:white;border:1px solid #eaeaf0;"
-                    f"border-left:3px solid #1a1a2e;border-radius:8px;"
-                    f"padding:10px 14px;margin-bottom:8px;'>"
-                    f"<div style='font-size:13px;font-weight:600;'>{f['titolo']}</div>"
-                    f"<div style='font-size:11px;color:#888;margin-top:3px;'>"
-                    f"{nome_cliente}</div></div>",
+                    "<div style='background:white;border:1px solid #eaeaf0;"
+                    "border-left:3px solid #1a1a2e;border-radius:8px;"
+                    "padding:10px 14px;margin-bottom:8px;'>"
+                    "<div style='font-size:13px;font-weight:600;'>"
+                    + f["titolo"] +
+                    "</div>"
+                    "<div style='font-size:11px;color:#888;margin-top:3px;'>"
+                    + nome_cliente +
+                    "</div></div>",
                     unsafe_allow_html=True
                 )
                 if can_edit(utente):
@@ -119,12 +161,15 @@ def pagina_dashboard(utente):
                 nome_cliente = cliente.get("ragione_sociale") or \
                     f"{cliente.get('nome','')} {cliente.get('cognome','')}".strip()
                 st.markdown(
-                    f"<div style='background:white;border:1px solid #eaeaf0;"
-                    f"border-left:3px solid #6a6aae;border-radius:8px;"
-                    f"padding:10px 14px;margin-bottom:8px;'>"
-                    f"<div style='font-size:13px;font-weight:600;'>{f['titolo']}</div>"
-                    f"<div style='font-size:11px;color:#888;margin-top:3px;'>"
-                    f"{nome_cliente} · {f.get('followup_data','')}</div></div>",
+                    "<div style='background:white;border:1px solid #eaeaf0;"
+                    "border-left:3px solid #6a6aae;border-radius:8px;"
+                    "padding:10px 14px;margin-bottom:8px;'>"
+                    "<div style='font-size:13px;font-weight:600;'>"
+                    + f["titolo"] +
+                    "</div>"
+                    "<div style='font-size:11px;color:#888;margin-top:3px;'>"
+                    + nome_cliente + " · " + f.get("followup_data", "") +
+                    "</div></div>",
                     unsafe_allow_html=True
                 )
                 if can_edit(utente):
@@ -282,16 +327,15 @@ def pagina_dashboard(utente):
                 for k, v in riepilogo.items():
                     c1, c2 = st.columns([3, 2])
                     c1.markdown(
-                        f"<span style='font-size:12px;color:#888;'>{k}</span>",
+                        "<span style='font-size:12px;color:#888;'>" + k + "</span>",
                         unsafe_allow_html=True
                     )
                     c2.markdown(
-                        f"<span style='font-size:13px;font-weight:600;"
-                        f"color:#1a1a2e;'>{v}</span>",
+                        "<span style='font-size:13px;font-weight:600;color:#1a1a2e;'>"
+                        + str(v) + "</span>",
                         unsafe_allow_html=True
                     )
 
-    # ── NOTIFICHE ──
     _mostra_notifica_messaggi(utente)
 
 
