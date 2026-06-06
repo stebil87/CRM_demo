@@ -47,7 +47,6 @@ def pagina_offerte(utente, cliente_id=None, cliente_nome=None):
                     label += f"   |   {nome_cl}"
                 label += f"   |   {o.get('valuta','CHF')} {float(o.get('importo') or 0):,.2f}"
                 label += f"   |   {o.get('stato','').upper()}   |   v{o.get('versione',1)}"
-
                 with st.expander(label):
                     _scheda_offerta(o, utente)
 
@@ -100,6 +99,60 @@ def _scheda_offerta(o, utente):
             key=f"pdf_{o['id']}"
         )
 
+    # ── CONFERMA D'ORDINE ──
+    if o.get("stato") == "accettata" and can_edit(utente):
+        st.markdown("---")
+        st.markdown("**Conferma d'ordine**")
+        email_cliente = cliente_dati.get("email", "")
+
+        if not email_cliente:
+            st.warning("Nessuna email salvata per questo cliente.")
+        else:
+            from email_service import corpo_conferma_ordine
+            corpo_default = corpo_conferma_ordine(cliente_dati, o)
+
+            with st.expander("Anteprima e invio conferma d'ordine"):
+                email_dest = st.text_input(
+                    "Email destinatario",
+                    value=email_cliente,
+                    key=f"email_dest_{o['id']}"
+                )
+                oggetto = st.text_input(
+                    "Oggetto",
+                    value=f"Conferma d'ordine — {o.get('numero','')}",
+                    key=f"oggetto_{o['id']}"
+                )
+                st.markdown("**Anteprima email:**")
+                st.components.v1.html(corpo_default, height=400, scrolling=True)
+
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    if st.button("Invia conferma d'ordine", key=f"invia_conf_{o['id']}"):
+                        from email_service import invia_email
+                        err = invia_email(
+                            email_dest, oggetto, corpo_default,
+                            tipo="conferma_ordine",
+                            riferimento_id=o["id"]
+                        )
+                        if err:
+                            st.error(f"Errore invio: {err}")
+                        else:
+                            st.success("Conferma d'ordine inviata.")
+                            st.session_state[f"conf_inviata_{o['id']}"] = True
+                            st.rerun()
+
+                if st.session_state.get(f"conf_inviata_{o['id']}"):
+                    with col_b:
+                        if st.button(
+                            "Crea evento per questa offerta",
+                            key=f"crea_ev_{o['id']}"
+                        ):
+                            st.session_state.pagina = "eventi"
+                            st.session_state.offerta_per_evento = o
+                            st.rerun()
+
+    st.markdown("---")
+
     if can_edit(utente):
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -113,7 +166,10 @@ def _scheda_offerta(o, utente):
                     st.rerun()
         with col3:
             stati_successivi = [s for s in STATI_OFFERTA if s != o["stato"]]
-            nuovo_stato = st.selectbox("Cambia stato", ["—"] + stati_successivi, key=f"ost_{o['id']}")
+            nuovo_stato = st.selectbox(
+                "Cambia stato", ["—"] + stati_successivi,
+                key=f"ost_{o['id']}"
+            )
             if nuovo_stato != "—":
                 aggiorna_offerta(o["id"], {"stato": nuovo_stato})
                 st.rerun()
@@ -136,24 +192,39 @@ def _form_righe(righe_default=None, key_prefix="nr"):
     for i, r in enumerate(st.session_state.righe_temp):
         col1, col2, col3, col4 = st.columns([4, 1, 2, 1])
         with col1:
-            desc = st.text_input("Descrizione", value=r.get("descrizione", ""), key=f"{key_prefix}_d{i}")
+            desc = st.text_input(
+                "Descrizione", value=r.get("descrizione", ""),
+                key=f"{key_prefix}_d{i}"
+            )
         with col2:
-            qta = st.number_input("Qta", min_value=0.0, value=float(r.get("qta", 1)), step=1.0, key=f"{key_prefix}_q{i}")
+            qta = st.number_input(
+                "Qta", min_value=0.0, value=float(r.get("qta", 1)),
+                step=1.0, key=f"{key_prefix}_q{i}"
+            )
         with col3:
-            prezzo = st.number_input("Prezzo unit.", min_value=0.0, value=float(r.get("prezzo", 0)), step=10.0, key=f"{key_prefix}_p{i}")
+            prezzo = st.number_input(
+                "Prezzo unit.", min_value=0.0,
+                value=float(r.get("prezzo", 0)),
+                step=10.0, key=f"{key_prefix}_p{i}"
+            )
         with col4:
             tot = qta * prezzo
             st.metric("Totale", f"{tot:,.2f}")
             if st.button("Rimuovi", key=f"{key_prefix}_del{i}"):
                 st.session_state.righe_temp.pop(i)
                 st.rerun()
-        righe_aggiornate.append({"descrizione": desc, "qta": qta, "prezzo": prezzo, "totale": tot})
+        righe_aggiornate.append({
+            "descrizione": desc, "qta": qta,
+            "prezzo": prezzo, "totale": tot
+        })
         totale_generale += tot
 
     st.session_state.righe_temp = righe_aggiornate
 
     if st.button("Aggiungi riga", key=f"{key_prefix}_add"):
-        st.session_state.righe_temp.append({"descrizione": "", "qta": 1, "prezzo": 0.0, "totale": 0.0})
+        st.session_state.righe_temp.append({
+            "descrizione": "", "qta": 1, "prezzo": 0.0, "totale": 0.0
+        })
         st.rerun()
 
     st.markdown(f"**Totale: {totale_generale:,.2f}**")
@@ -201,16 +272,25 @@ def _form_nuova_offerta(utente, cliente_id):
 
         st.markdown("---")
 
+    # Precompila da offerta_per_evento se presente
+    offerta_ref = st.session_state.get("offerta_per_evento")
+
     with st.form("form_nuova_offerta"):
         col1, col2 = st.columns(2)
         with col1:
-            titolo = st.text_input("Titolo offerta *")
+            titolo = st.text_input(
+                "Titolo offerta *",
+                value=offerta_ref.get("titolo","") if offerta_ref else ""
+            )
             valuta = st.selectbox("Valuta", VALUTE)
             data_emissione = st.date_input("Data emissione", value=date.today())
         with col2:
             stato = st.selectbox("Stato iniziale", STATI_OFFERTA)
             data_scadenza = st.date_input("Data scadenza", value=None)
-        descrizione = st.text_area("Descrizione")
+        descrizione = st.text_area(
+            "Descrizione",
+            value=offerta_ref.get("descrizione","") if offerta_ref else ""
+        )
         note = st.text_area("Note interne")
         submitted = st.form_submit_button("Crea e genera PDF")
 
@@ -233,6 +313,7 @@ def _form_nuova_offerta(utente, cliente_id):
                 "note": note,
             }, utente["id"])
             st.session_state.righe_temp = []
+            st.session_state.offerta_per_evento = None
             if nuova:
                 cliente_dati = get_cliente(cliente_id) or {}
                 pdf_bytes = genera_pdf_offerta(nuova, cliente_dati)
@@ -265,20 +346,24 @@ def _form_modifica_offerta(o, utente):
             titolo = st.text_input("Titolo *", value=o["titolo"])
             valuta = st.selectbox(
                 "Valuta", VALUTE,
-                index=VALUTE.index(o.get("valuta", "CHF")) if o.get("valuta") in VALUTE else 0
+                index=VALUTE.index(o.get("valuta", "CHF"))
+                if o.get("valuta") in VALUTE else 0
             )
             data_emissione = st.date_input(
                 "Data emissione",
-                value=date.fromisoformat(o["data_emissione"]) if o.get("data_emissione") else date.today()
+                value=date.fromisoformat(o["data_emissione"])
+                if o.get("data_emissione") else date.today()
             )
         with col2:
             stato = st.selectbox(
                 "Stato", STATI_OFFERTA,
-                index=STATI_OFFERTA.index(o["stato"]) if o["stato"] in STATI_OFFERTA else 0
+                index=STATI_OFFERTA.index(o["stato"])
+                if o["stato"] in STATI_OFFERTA else 0
             )
             data_scadenza = st.date_input(
                 "Scadenza",
-                value=date.fromisoformat(o["data_scadenza"]) if o.get("data_scadenza") else None
+                value=date.fromisoformat(o["data_scadenza"])
+                if o.get("data_scadenza") else None
             )
         descrizione = st.text_area("Descrizione", value=o.get("descrizione", ""))
         note = st.text_area("Note", value=o.get("note", ""))
