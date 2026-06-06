@@ -24,39 +24,79 @@ def _saluto(utente):
 
     if 5 <= ora < 12:
         saluti = [
-            f"Buongiorno {nome}! Caffè in mano e si parte.",
-            f"Ehi {nome}, buongiorno! Oggi è un buon giorno per chiudere qualcosa di bello.",
-            f"Buongiorno {nome}! Il mondo là fuori aspetta solo te.",
-            f"Ciao {nome}, buongiorno! Che la giornata sia all'altezza del tuo umore.",
-            f"Buongiorno {nome}! Respiro profondo, sorriso e via.",
-            f"Ehi {nome}! Nuova giornata, nuove possibilità. Iniziamo.",
-            f"Buongiorno {nome}! Prima il caffè, poi il CRM. Nell'ordine.",
+            f"Buongiorno {nome}! Ogni mattina è una pagina bianca — scrivila bene.",
+            f"Buongiorno {nome}! Il successo è la somma di piccoli sforzi ripetuti ogni giorno.",
+            f"Buongiorno {nome}! Chi lavora con passione non conta le ore.",
+            f"Buongiorno {nome}! La giornata migliore è quella che non hai ancora vissuto.",
+            f"Buongiorno {nome}! Il caffè è pronto, il mondo aspetta.",
+            f"Buongiorno {nome}! Ogni cliente soddisfatto è una storia di successo.",
+            f"Buongiorno {nome}! Le grandi cose non si fanno con la forza, ma con la perseveranza.",
+            f"Buongiorno {nome}! Inizia la giornata con il sorriso — il resto viene da sé.",
+            f"Buongiorno {nome}! Non aspettare il momento perfetto, prendi il momento e rendilo perfetto.",
+            f"Buongiorno {nome}! La fortuna aiuta gli audaci — e chi arriva in ufficio con le idee chiare.",
+            f"Buongiorno {nome}! Oggi è un buon giorno per fare qualcosa di cui andare fieri.",
+            f"Buongiorno {nome}! Il talento vince le partite, ma il lavoro di squadra vince i campionati.",
+            f"Buongiorno {nome}! Ogni giornata lavorativa è un'opportunità travestita da impegno.",
+            f"Buongiorno {nome}! La qualità non è un atto, è un'abitudine.",
+            f"Buongiorno {nome}! Chi non risica non rosica — buona giornata di lavoro.",
+            f"Buongiorno {nome}! Il segreto del successo è iniziare.",
+            f"Buongiorno {nome}! Non rimandare a domani ciò che puoi fare con entusiasmo oggi.",
+            f"Buongiorno {nome}! Un passo alla volta porta lontano.",
+            f"Buongiorno {nome}! La determinazione di oggi è il risultato di domani.",
+            f"Buongiorno {nome}! Sorridi — sei già avanti rispetto a chi ancora dorme.",
         ]
     elif 12 <= ora < 14:
         saluti = [
-            f"Buon pranzo {nome}! Ricordati di staccare almeno 10 minuti.",
-            f"Ehi {nome}, è ora di pranzo. Il lavoro può aspettare, lo stomaco no.",
-            f"Mezzogiorno {nome}! Meritato.",
-            f"Ciao {nome}! Pausa pranzo — ricarica le pile che il pomeriggio è lungo.",
+            f"Buon pranzo {nome}! Ricordati: anche i grandi leader fanno pausa.",
+            f"Buon pranzo {nome}! Il corpo si ricarica, la mente si prepara al pomeriggio.",
+            f"Buon pranzo {nome}! Una pausa ben vissuta vale quanto un'ora di lavoro.",
+            f"Buon pranzo {nome}! Chi si ferma a riflettere arriva più lontano di chi corre sempre.",
+            f"Buon pranzo {nome}! Stacca la spina almeno mentre mangi — te lo meriti.",
+            f"Buon pranzo {nome}! Il lavoro aspetta, il cibo si raffredda.",
+            f"Buon pranzo {nome}! La pausa pranzo è il momento più sottovalutato della giornata lavorativa.",
+            f"Buon pranzo {nome}! Anche le menti più brillanti hanno bisogno di carburante.",
+            f"Buon pranzo {nome}! Metti il telefono giù, almeno per i prossimi venti minuti.",
+            f"Buon pranzo {nome}! Una mente riposata è più produttiva di una affaticata.",
         ]
     elif 14 <= ora < 18:
         saluti = [
-            f"Buon pomeriggio {nome}! Forza, manca meno di stamattina.",
-            f"Ehi {nome}, pomeriggio! Il picco di stanchezza passa, promesso.",
-            f"Ciao {nome}! Momento perfetto per chiudere qualcosa in sospeso.",
-            f"Buon pomeriggio {nome}! Un cliente alla volta, ce la fai.",
+            f"Buon pomeriggio {nome}! Il pomeriggio è il momento dei campioni.",
+            f"Buon pomeriggio {nome}! Manca meno di stamattina — tieni duro.",
+            f"Buon pomeriggio {nome}! Il successo non è mai lontano da chi ci mette costanza.",
+            f"Buon pomeriggio {nome}! Un cliente alla volta, un'offerta alla volta.",
+            f"Buon pomeriggio {nome}! Le ore del pomeriggio sono quelle in cui si chiudono le trattative migliori.",
+            f"Buon pomeriggio {nome}! Non è stanchezza, è esperienza che si accumula.",
+            f"Buon pomeriggio {nome}! Ogni telefonata può essere quella che cambia la giornata.",
+            f"Buon pomeriggio {nome}! Chi persevera vince — e tu stai perseverando.",
+            f"Buon pomeriggio {nome}! Le migliori idee arrivano nel pomeriggio, dicono gli ottimisti.",
+            f"Buon pomeriggio {nome}! Concentrazione, determinazione, risultati.",
+            f"Buon pomeriggio {nome}! Il dettaglio fa la differenza tra buono e eccellente.",
+            f"Buon pomeriggio {nome}! Ogni piccolo passo in avanti è comunque un passo in avanti.",
+            f"Buon pomeriggio {nome}! La qualità del lavoro si vede anche nelle ore piccole.",
+            f"Buon pomeriggio {nome}! Sei a buon punto — continua così.",
         ]
     elif 18 <= ora < 22:
         saluti = [
-            f"Buonasera {nome}! Ancora qui? Sei una forza.",
-            f"Ehi {nome}, buonasera! Quasi fatta per oggi.",
-            f"Buonasera {nome}! Ancora un po' e poi meritatissimo riposo.",
+            f"Buonasera {nome}! Ancora qui? Il lavoro ti rispetta quanto tu rispetti lui.",
+            f"Buonasera {nome}! La dedizione che mostri oggi costruisce il successo di domani.",
+            f"Buonasera {nome}! Chi lavora con passione non si accorge delle ore.",
+            f"Buonasera {nome}! Quasi fatta — dai il meglio fino alla fine.",
+            f"Buonasera {nome}! Il lavoro di questa sera è il fondamento del risultato di domani.",
+            f"Buonasera {nome}! La costanza è la virtù più rara e più preziosa.",
+            f"Buonasera {nome}! Ancora un po' e poi il meritato riposo.",
+            f"Buonasera {nome}! Chi finisce bene la giornata dorme con la coscienza tranquilla.",
+            f"Buonasera {nome}! Il sacrificio di oggi è l'orgoglio di domani.",
+            f"Buonasera {nome}! La professionalità non ha orari — ma ha i suoi premi.",
         ]
     else:
         saluti = [
-            f"Ehi {nome}, sei sicuro di essere qui a quest'ora?",
-            f"Buonanotte {nome}! Il CRM è aperto 24 ore, ma tu dovresti dormire.",
-            f"Ehi {nome}, notte fonda. Chiudi il laptop, dai.",
+            f"Ciao {nome}! A quest'ora o sei un genio o hai una scadenza domani mattina.",
+            f"Ciao {nome}! Il CRM è aperto 24 ore — ma tu avresti tutto il diritto di dormire.",
+            f"Ciao {nome}! Chi lavora di notte vede le stelle — e anche i dati del CRM.",
+            f"Ciao {nome}! La notte porta consiglio, si dice. Tu stai raccogliendo molto consiglio.",
+            f"Ciao {nome}! Anche i migliori si fermano a dormire — prendilo in considerazione.",
+            f"Ciao {nome}! Notte fonda, mente lucida — o almeno ci proviamo.",
+            f"Ciao {nome}! Il silenzio della notte è perfetto per concentrarsi. O per andare a letto.",
         ]
 
     testo = random.choice(saluti)
@@ -71,22 +111,23 @@ def _saluto(utente):
             box-shadow: 0 4px 16px rgba(26,26,46,0.15);
         '>
             <div style='
-                font-size: 22px;
+                font-size: 20px;
                 font-weight: 700;
                 color: white;
                 letter-spacing: -0.3px;
-                margin-bottom: 4px;
+                line-height: 1.4;
+                margin-bottom: 6px;
             '>{testo}</div>
             <div style='
-                font-size: 12px;
-                color: rgba(255,255,255,0.45);
-                letter-spacing: 0.5px;
-            '>1908 Group — CRM</div>
+                font-size: 11px;
+                color: rgba(255,255,255,0.35);
+                letter-spacing: 0.8px;
+                text-transform: uppercase;
+            '>1908 Group SA — Piattaforma CRM</div>
         </div>
         """,
         unsafe_allow_html=True
     )
-
 
 def pagina_dashboard(utente):
     st.title("Dashboard")
