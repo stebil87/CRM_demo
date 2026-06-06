@@ -40,27 +40,27 @@ def lista_template(user_id):
     sb = get_sb()
     try:
         # I miei template
-        miei = sb.table("template_offerte").select(
+        res_miei = sb.table("template_offerte").select(
             "*, creatore:utenti!template_offerte_created_by_fkey(nome, cognome)"
         ).eq("created_by", user_id).order("created_at", desc=True).execute()
+        miei = res_miei.data or []
 
         # Template condivisi con me
-        condivisi_ids_res = sb.table("template_condivisioni").select(
+        res_cond = sb.table("template_condivisioni").select(
             "template_id"
         ).eq("utente_id", user_id).execute()
-
-        ids_condivisi = [r["template_id"] for r in (condivisi_ids_res.data or [])]
+        ids_condivisi = [r["template_id"] for r in (res_cond.data or [])]
 
         condivisi = []
         if ids_condivisi:
-            res = sb.table("template_offerte").select(
+            res_c = sb.table("template_offerte").select(
                 "*, creatore:utenti!template_offerte_created_by_fkey(nome, cognome)"
             ).in_("id", ids_condivisi).execute()
-            condivisi = res.data or []
+            condivisi = res_c.data or []
 
-        tutti = (miei.data or []) + condivisi
-        return tutti
-    except:
+        return miei + condivisi
+    except Exception as e:
+        st.write(f"DEBUG lista_template errore: {e}")
         return []
 
 def get_condivisioni_template(template_id):
