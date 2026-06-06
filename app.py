@@ -1,5 +1,5 @@
 import streamlit as st
-from auth import check_auth, pagina_login, do_logout, is_admin
+from auth import check_auth, pagina_login, do_logout, is_admin, cambia_password, valida_password
 from dashboard import pagina_dashboard
 from clienti import pagina_clienti
 from diario import pagina_diario
@@ -11,7 +11,7 @@ from calendario import pagina_calendario
 from template_offerte import pagina_template
 from eventi_catering import pagina_eventi
 from inbox_widget import pagina_inbox
-from db import lista_messaggi_non_letti
+from db import lista_messaggi_non_letti, log_attivita
 
 st.set_page_config(
     page_title="1908 Group — CRM",
@@ -34,7 +34,6 @@ html, body, [class*="css"] {
 footer { display: none !important; }
 #MainMenu { visibility: hidden; }
 
-/* ── SIDEBAR SEMPRE VISIBILE ── */
 [data-testid="collapsedControl"] { display: none !important; }
 button[data-testid="baseButton-header"] { display: none !important; }
 
@@ -71,8 +70,22 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     border-left: 3px solid #4a9eff;
     padding-left: 13px;
 }
+section[data-testid="stSidebar"] .streamlit-expanderHeader {
+    background: rgba(255,255,255,0.04) !important;
+    border: 1px solid #2a2a4a !important;
+    border-radius: 6px !important;
+    color: #9999bb !important;
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+}
+section[data-testid="stSidebar"] .streamlit-expanderContent {
+    background: rgba(0,0,0,0.2) !important;
+    border: 1px solid #2a2a4a !important;
+    border-top: none !important;
+    border-radius: 0 0 6px 6px !important;
+    padding: 12px !important;
+}
 
-/* ── MAIN ── */
 .main .block-container {
     padding: 2rem 2.5rem;
     max-width: 1400px;
@@ -160,9 +173,7 @@ h3 { font-size: 14px !important; font-weight: 600 !important; color: #1a1a2e !im
     color: #1a1a2e;
     padding: 12px 16px;
 }
-.streamlit-expanderHeader:hover {
-    background: #f0f0f8;
-}
+.streamlit-expanderHeader:hover { background: #f0f0f8; }
 .streamlit-expanderContent {
     border: 1px solid #eaeaf0;
     border-top: none;
@@ -212,7 +223,7 @@ hr { border: none; border-top: 1px solid #eaeaf0; margin: 16px 0; }
     background: rgba(255,255,255,0.06);
     border-radius: 8px;
     padding: 12px 14px;
-    margin: 8px 0 16px 0;
+    margin: 8px 0 12px 0;
 }
 .sidebar-nav-label {
     font-size: 10px;
@@ -300,6 +311,7 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
+    # ── BOX UTENTE ──
     st.markdown(f"""
     <div class="sidebar-user">
         <div style="font-size:13px;font-weight:600;color:#ffffff !important;">
@@ -317,6 +329,52 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
+    # ── CAMBIO PASSWORD ──
+    with st.expander("Cambia password"):
+        nuova = st.text_input(
+            "Nuova password",
+            type="password",
+            key="sidebar_nuova_pwd"
+        )
+        conferma = st.text_input(
+            "Conferma password",
+            type="password",
+            key="sidebar_conferma_pwd"
+        )
+        st.markdown(
+            "<div style='font-size:10px;color:#9999bb;line-height:1.6;"
+            "margin-bottom:6px;'>"
+            "Requisiti: 8+ caratteri, maiuscola,<br>"
+            "minuscola, numero, carattere speciale</div>",
+            unsafe_allow_html=True
+        )
+        if st.button("Aggiorna password", key="btn_cambia_pwd",
+                     use_container_width=True):
+            if not nuova or not conferma:
+                st.error("Compila entrambi i campi.")
+            elif nuova != conferma:
+                st.error("Le password non coincidono.")
+            else:
+                errori = valida_password(nuova)
+                if errori:
+                    st.error("Password non valida: " + ", ".join(errori) + ".")
+                else:
+                    err = cambia_password(nuova)
+                    if err:
+                        st.error(f"Errore: {err}")
+                    else:
+                        st.success("Password aggiornata.")
+                        log_attivita(
+                            utente["id"], "modificato",
+                            "password", utente["id"]
+                        )
+
+    st.markdown(
+        "<hr style='border-color:#2a2a4a;margin:12px 0;'>",
+        unsafe_allow_html=True
+    )
+
+    # ── NAVIGAZIONE ──
     st.markdown(
         '<div class="sidebar-nav-label">Navigazione</div>',
         unsafe_allow_html=True
@@ -346,7 +404,7 @@ with st.sidebar:
             st.rerun()
 
     st.markdown(
-        "<hr style='border-color:#2a2a4a;margin:16px 0;'>",
+        "<hr style='border-color:#2a2a4a;margin:12px 0;'>",
         unsafe_allow_html=True
     )
 
