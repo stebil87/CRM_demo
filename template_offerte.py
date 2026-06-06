@@ -15,18 +15,6 @@ def pagina_template(utente):
     st.title("Template offerte")
     st.markdown("---")
 
-    # DEBUG DIRETTO
-    from supabase import create_client
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_SERVICE_KEY"]
-    sb_test = create_client(url, key)
-    try:
-        res = sb_test.table("template_offerte").select("*").execute()
-        st.write(f"DEBUG DIRETTO - totale righe: {len(res.data or [])}")
-        st.write(f"DEBUG DIRETTO - dati: {res.data}")
-    except Exception as e:
-        st.write(f"DEBUG DIRETTO - ERRORE: {e}")
-
     tab_nuovo, tab_lista = st.tabs(["Nuovo template", "I miei template"])
 
     with tab_nuovo:
