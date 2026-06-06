@@ -22,15 +22,21 @@ def pagina_login():
                 return
             with st.spinner("Accesso in corso..."):
                 user, err = login_utente(email, password)
+            
             if err:
-                st.error("Credenziali non valide.")
+                st.error(f"Errore login: {err}")
                 return
+            
+            st.write(f"DEBUG - User ID: {user.id}")
+            
             profilo = get_profilo_utente(user.id)
+            st.write(f"DEBUG - Profilo: {profilo}")
+            
             if not profilo:
                 st.error("Utente non trovato nel sistema. Contatta un amministratore.")
                 return
             if not profilo.get("attivo", True):
-                st.error("Account disattivato. Contatta un amministratore.")
+                st.error("Account disattivato.")
                 return
             st.session_state.utente = profilo
             st.session_state.supabase_user = user
