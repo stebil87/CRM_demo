@@ -31,15 +31,14 @@ def get_profilo_utente(user_id):
 # ── CONDIVISIONI TEMPLATE ─────────────────────────────
 
 def lista_template(user_id):
-    sb = get_sb()
+    from supabase import create_client
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_SERVICE_KEY"]
+    sb = create_client(url, key)
     try:
-        res = sb.table("template_offerte").select("*").eq(
-            "created_by", user_id
-        ).execute()
-        print(f"LISTA_TEMPLATE: {len(res.data or [])} risultati per {user_id}")
+        res = sb.table("template_offerte").select("*").eq("created_by", user_id).execute()
         return res.data or []
     except Exception as e:
-        print(f"LISTA_TEMPLATE ERRORE: {e}")
         return []
 
 
