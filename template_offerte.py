@@ -4,7 +4,11 @@ from db import (
     lista_template, get_template, crea_template,
     aggiorna_template, elimina_template,
     get_condivisioni_template, condividi_template,
-    rimuovi_condivisione_template, lista_utenti)
+    rimuovi_condivisione_template, lista_utenti
+)
+from auth import can_edit
+
+VALUTE = ["CHF", "EUR", "USD"]
 
 
 def pagina_template(utente):
@@ -18,12 +22,10 @@ def pagina_template(utente):
 
     with tab_lista:
         _lista_template(utente)
-def _lista_template(utente):
-    from db import lista_template as _lt
-    templates = _lt(utente["id"])
 
-    st.write(f"DEBUG user_id: {utente['id']}")
-    st.write(f"DEBUG templates: {templates}")
+
+def _lista_template(utente):
+    templates = lista_template(utente["id"])
 
     if not templates:
         st.info("Nessun template disponibile. Creane uno dalla scheda accanto.")
@@ -57,11 +59,13 @@ def _scheda_template(t, utente, is_owner):
     creatore = t.get("creatore") or {}
     nome_creatore = f"{creatore.get('nome','')} {creatore.get('cognome','')}".strip()
 
-    with st.expander(
+    label = (
         f"{t['titolo']}   |   {n_righe} voci   |   "
         f"{t.get('valuta','CHF')} {totale:,.2f}"
         + ("   |   tuo" if is_owner else f"   |   da {nome_creatore}")
-    ):
+    )
+
+    with st.expander(label):
         col1, col2 = st.columns(2)
         with col1:
             st.markdown(f"**Titolo:** {t['titolo']}")
@@ -92,7 +96,7 @@ def _scheda_template(t, utente, is_owner):
                 st.session_state.pagina = "offerte_all"
                 st.session_state.cliente_id = None
                 st.session_state.cliente_nome = None
-                st.success("Template caricato. Vai su Offerte per usarlo.")
+                st.success("Template caricato. Vai su Offerte.")
                 st.rerun()
 
         if is_owner:
@@ -104,7 +108,7 @@ def _scheda_template(t, utente, is_owner):
                     st.session_state[f"delconf_tmpl_{t['id']}"] = True
 
             if st.session_state.get(f"delconf_tmpl_{t['id']}"):
-                st.warning("Confermi l'eliminazione del template?")
+                st.warning("Confermi l'eliminazione?")
                 c1, c2 = st.columns(2)
                 if c1.button("Si, elimina", key=f"tdok_{t['id']}"):
                     elimina_template(t["id"])
@@ -117,7 +121,6 @@ def _scheda_template(t, utente, is_owner):
                 st.markdown("---")
                 _form_modifica_template(t, utente)
 
-            # Gestione condivisioni
             st.markdown("---")
             _gestione_condivisioni(t, utente)
 
@@ -127,9 +130,8 @@ def _gestione_condivisioni(t, utente):
     condivisioni = get_condivisioni_template(t["id"])
     tutti_utenti = lista_utenti()
     altri_utenti = [u for u in tutti_utenti if u["id"] != utente["id"]]
-
-    # Chi ha già accesso
     ids_condivisi = [c["utente_id"] for c in condivisioni]
+
     if condivisioni:
         for c in condivisioni:
             u = c.get("utente") or {}
@@ -149,7 +151,6 @@ def _gestione_condivisioni(t, utente):
             unsafe_allow_html=True
         )
 
-    # Aggiungi condivisione
     disponibili = [u for u in altri_utenti if u["id"] not in ids_condivisi]
     if disponibili:
         opzioni = {"— Seleziona utente —": None}
@@ -162,9 +163,7 @@ def _gestione_condivisioni(t, utente):
             list(opzioni.keys()),
             key=f"sel_cond_{t['id']}"
         )
-        if opzioni[sel] and st.button(
-            "Condividi", key=f"btn_cond_{t['id']}"
-        ):
+        if opzioni.get(sel) and st.button("Condividi", key=f"btn_cond_{t['id']}"):
             err = condividi_template(t["id"], opzioni[sel])
             if err:
                 st.error(f"Errore: {err}")
@@ -182,40 +181,36 @@ def _gestione_condivisioni(t, utente):
 def _form_nuovo_template(utente):
     st.subheader("Nuovo template")
 
-    with st.form("form_nuovo_template"):
-        col1, col2 = st.columns(2)
-        with col1:
-            titolo = st.text_input("Titolo *")
-            valuta = st.selectbox("Valuta", COLORI_VALUTA)
-        with col2:
-            descrizione = st.text_area("Descrizione", height=80)
-        note = st.text_area("Note interne", height=60)
-        submitted = st.form_submit_button("Crea template", use_container_width=True)
+    titolo = st.text_input("Titolo *", key="new_tmpl_titolo")
+    col1, col2 = st.columns(2)
+    with col1:
+        valuta = st.selectbox("Valuta", VALUTE, key="new_tmpl_valuta")
+    with col2:
+        descrizione = st.text_area("Descrizione", height=80, key="new_tmpl_desc")
+    note = st.text_area("Note interne", height=60, key="new_tmpl_note")
 
-    if submitted:
+    st.markdown("---")
+    _form_righe_template(key_prefix="tmpl_new", state_key="righe_template_new")
+    st.markdown("---")
+
+    if st.button("Crea template", key="btn_crea_tmpl", use_container_width=True):
         if not titolo:
             st.error("Il titolo e obbligatorio.")
         else:
             righe = st.session_state.get("righe_template_new", [])
-            dati = {
+            risultato = crea_template({
                 "titolo": titolo,
                 "descrizione": descrizione,
                 "righe": righe,
                 "valuta": valuta,
                 "note": note,
-            }
-            st.write(f"DEBUG dati da salvare: {dati}")
-            risultato = crea_template(dati, utente["id"])
-            st.write(f"DEBUG risultato crea_template: {risultato}")
+            }, utente["id"])
             if risultato:
                 st.session_state.righe_template_new = []
                 st.success("Template creato.")
                 st.rerun()
             else:
-                st.error("Errore nel salvataggio — controlla i log.")
-
-    st.markdown("---")
-    _form_righe_template(key_prefix="tmpl_new", state_key="righe_template_new")
+                st.error("Errore nel salvataggio.")
 
 
 def _form_modifica_template(t, utente):
@@ -228,40 +223,24 @@ def _form_modifica_template(t, utente):
 
     state_key = f"righe_template_{t['id']}"
 
-    with st.form(f"form_edit_tmpl_{t['id']}"):
-        col1, col2 = st.columns(2)
-        with col1:
-            titolo = st.text_input("Titolo *", value=t["titolo"])
-            valuta = st.selectbox(
-                "Valuta", COLORI_VALUTA,
-                index=COLORI_VALUTA.index(t.get("valuta","CHF"))
-                if t.get("valuta") in COLORI_VALUTA else 0
-            )
-        with col2:
-            descrizione = st.text_area(
-                "Descrizione", value=t.get("descrizione",""), height=80
-            )
-        note = st.text_area("Note", value=t.get("note",""), height=60)
-        col1, col2 = st.columns(2)
-        with col1:
-            salva = st.form_submit_button("Salva", use_container_width=True)
-        with col2:
-            annulla = st.form_submit_button("Annulla", use_container_width=True)
-
-    if salva:
-        righe = st.session_state.get(state_key, righe_esistenti)
-        aggiorna_template(t["id"], {
-            "titolo": titolo,
-            "descrizione": descrizione,
-            "righe": righe,
-            "valuta": valuta,
-            "note": note,
-        })
-        st.session_state[f"edit_tmpl_{t['id']}"] = False
-        st.rerun()
-    if annulla:
-        st.session_state[f"edit_tmpl_{t['id']}"] = False
-        st.rerun()
+    titolo = st.text_input("Titolo *", value=t["titolo"], key=f"edit_tit_{t['id']}")
+    col1, col2 = st.columns(2)
+    with col1:
+        valuta = st.selectbox(
+            "Valuta", VALUTE,
+            index=VALUTE.index(t.get("valuta", "CHF"))
+            if t.get("valuta") in VALUTE else 0,
+            key=f"edit_val_{t['id']}"
+        )
+    with col2:
+        descrizione = st.text_area(
+            "Descrizione", value=t.get("descrizione", ""),
+            height=80, key=f"edit_desc_{t['id']}"
+        )
+    note = st.text_area(
+        "Note", value=t.get("note", ""),
+        height=60, key=f"edit_note_{t['id']}"
+    )
 
     st.markdown("---")
     _form_righe_template(
@@ -269,6 +248,25 @@ def _form_modifica_template(t, utente):
         state_key=state_key,
         righe_default=righe_esistenti
     )
+    st.markdown("---")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Salva", key=f"salva_tmpl_{t['id']}", use_container_width=True):
+            righe = st.session_state.get(state_key, righe_esistenti)
+            aggiorna_template(t["id"], {
+                "titolo": titolo,
+                "descrizione": descrizione,
+                "righe": righe,
+                "valuta": valuta,
+                "note": note,
+            })
+            st.session_state[f"edit_tmpl_{t['id']}"] = False
+            st.rerun()
+    with col2:
+        if st.button("Annulla", key=f"ann_tmpl_{t['id']}", use_container_width=True):
+            st.session_state[f"edit_tmpl_{t['id']}"] = False
+            st.rerun()
 
 
 def _form_righe_template(key_prefix, state_key, righe_default=None):
