@@ -11,6 +11,24 @@ def get_supabase():
     key = st.secrets["SUPABASE_KEY"]
     return create_client(url, key)
 
+def log_attivita(utente_id, azione, entita, entita_id=None, dettagli=None):
+    """
+    Registra un'operazione nel log.
+    azione: "creato", "modificato", "eliminato", "inviato", "accesso"
+    entita: "cliente", "offerta", "evento", "diario", "documento", ecc.
+    """
+    sb = get_sb()
+    try:
+        sb.table("activity_log").insert({
+            "utente_id": utente_id,
+            "azione": azione,
+            "entita": entita,
+            "entita_id": str(entita_id) if entita_id else None,
+            "dettagli": dettagli or {}
+        }).execute()
+    except:
+        pass  # Il log non deve mai bloccare l'operazione principale
+
 def get_sb():
     url = st.secrets["SUPABASE_URL"]
     key = st.secrets["SUPABASE_SERVICE_KEY"]
