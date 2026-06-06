@@ -2,15 +2,21 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
-from db import stats_dashboard, followup_oggi, followup_prossimi7
+from datetime import datetime
+from db import (
+    stats_dashboard, followup_oggi, followup_prossimi7,
+    eventi_oggi_multi, get_calendari_visibili
+)
 from auth import can_edit
 
 def pagina_dashboard(utente):
     st.title("Dashboard")
 
     stats = stats_dashboard()
-    oggi = followup_oggi()
-    prossimi = followup_prossimi7()
+    oggi_fu = followup_oggi()
+    prossimi_fu = followup_prossimi7()
+    ids_visibili = get_calendari_visibili(utente["id"])
+    ev_oggi = eventi_oggi_multi(ids_visibili)
 
     offerte_df = pd.DataFrame(stats["offerte_data"]) if stats["offerte_data"] else pd.DataFrame()
     clienti_df = pd.DataFrame(stats["clienti_data"]) if stats["clienti_data"] else pd.DataFrame()
@@ -33,11 +39,7 @@ def pagina_dashboard(utente):
 
     st.markdown("---")
 
-    # ── FOLLOW-UP ──
-    # ── EVENTI OGGI ──
-    from db import eventi_oggi
-    ev_oggi = eventi_oggi(utente["id"])
-
+    # ── AGENDA + FOLLOW-UP ──
     col_ev, col_fu_oggi, col_fu_prox = st.columns(3)
 
     with col_ev:
@@ -52,21 +54,24 @@ def pagina_dashboard(utente):
                     ora = ""
                 colore = {
                     "appuntamento": "#1a1a2e",
-                    "riunione": "#0f3460",
-                    "chiamata": "#533483",
-                    "scadenza": "#e94560",
-                    "altro": "#6a6aae",
+                    "riunione":     "#0f3460",
+                    "chiamata":     "#533483",
+                    "scadenza":     "#e94560",
+                    "altro":        "#6a6aae",
                 }.get(e.get("tipo","altro"), "#1a1a2e")
+                propr = e.get("proprietario") or {}
+                nome_propr = f"{propr.get('nome','')} {propr.get('cognome','')}".strip()
                 st.markdown(
                     f"<div style='background:white;border:1px solid #eaeaf0;"
                     f"border-left:3px solid {colore};border-radius:8px;"
                     f"padding:10px 14px;margin-bottom:8px;'>"
                     f"<div style='font-size:13px;font-weight:600;color:#1a1a2e;'>"
-                    f"{ora} &nbsp; {e['titolo']}</div>"
+                    f"{ora}&nbsp;&nbsp;{e['titolo']}</div>"
                     f"<div style='font-size:11px;color:#888;margin-top:3px;'>"
                     f"{e.get('tipo','').upper()}"
-                    f"{' · ' + e['luogo'] if e.get('luogo') else ''}</div>"
-                    f"</div>",
+                    f"{' · ' + e['luogo'] if e.get('luogo') else ''}"
+                    f"{' · ' + nome_propr if nome_propr else ''}"
+                    f"</div></div>",
                     unsafe_allow_html=True
                 )
         else:
@@ -79,8 +84,8 @@ def pagina_dashboard(utente):
 
     with col_fu_oggi:
         st.markdown("**Follow-up di oggi**")
-        if oggi:
-            for f in oggi:
+        if oggi_fu:
+            for f in oggi_fu:
                 cliente = f.get("clienti", {})
                 nome_cliente = cliente.get("ragione_sociale") or \
                     f"{cliente.get('nome','')} {cliente.get('cognome','')}".strip()
@@ -89,8 +94,8 @@ def pagina_dashboard(utente):
                     f"border-left:3px solid #1a1a2e;border-radius:8px;"
                     f"padding:10px 14px;margin-bottom:8px;'>"
                     f"<div style='font-size:13px;font-weight:600;'>{f['titolo']}</div>"
-                    f"<div style='font-size:11px;color:#888;margin-top:3px;'>{nome_cliente}</div>"
-                    f"</div>",
+                    f"<div style='font-size:11px;color:#888;margin-top:3px;'>"
+                    f"{nome_cliente}</div></div>",
                     unsafe_allow_html=True
                 )
                 if can_edit(utente):
@@ -108,8 +113,8 @@ def pagina_dashboard(utente):
 
     with col_fu_prox:
         st.markdown("**Follow-up prossimi 7 giorni**")
-        if prossimi:
-            for f in prossimi:
+        if prossimi_fu:
+            for f in prossimi_fu:
                 cliente = f.get("clienti", {})
                 nome_cliente = cliente.get("ragione_sociale") or \
                     f"{cliente.get('nome','')} {cliente.get('cognome','')}".strip()
@@ -119,8 +124,7 @@ def pagina_dashboard(utente):
                     f"padding:10px 14px;margin-bottom:8px;'>"
                     f"<div style='font-size:13px;font-weight:600;'>{f['titolo']}</div>"
                     f"<div style='font-size:11px;color:#888;margin-top:3px;'>"
-                    f"{nome_cliente} · {f.get('followup_data','')}</div>"
-                    f"</div>",
+                    f"{nome_cliente} · {f.get('followup_data','')}</div></div>",
                     unsafe_allow_html=True
                 )
                 if can_edit(utente):
@@ -135,6 +139,8 @@ def pagina_dashboard(utente):
                 "Nessun follow-up in arrivo.</div>",
                 unsafe_allow_html=True
             )
+
+    st.markdown("---")
 
     # ── GRAFICI ──
     col_a, col_b, col_c = st.columns(3)
@@ -275,11 +281,19 @@ def pagina_dashboard(utente):
                 }
                 for k, v in riepilogo.items():
                     c1, c2 = st.columns([3, 2])
-                    c1.markdown(f"<span style='font-size:12px;color:#888;'>{k}</span>", unsafe_allow_html=True)
-                    c2.markdown(f"<span style='font-size:13px;font-weight:600;color:#1a1a2e;'>{v}</span>", unsafe_allow_html=True)
+                    c1.markdown(
+                        f"<span style='font-size:12px;color:#888;'>{k}</span>",
+                        unsafe_allow_html=True
+                    )
+                    c2.markdown(
+                        f"<span style='font-size:13px;font-weight:600;"
+                        f"color:#1a1a2e;'>{v}</span>",
+                        unsafe_allow_html=True
+                    )
 
     # ── NOTIFICHE ──
     _mostra_notifica_messaggi(utente)
+
 
 def _mostra_notifica_messaggi(utente):
     from db import lista_messaggi_non_letti
