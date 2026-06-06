@@ -8,6 +8,7 @@ from documenti import pagina_documenti
 from admin import pagina_admin
 from messaggi import pagina_messaggi
 from calendario import pagina_calendario
+from template_offerte import pagina_template
 from db import lista_messaggi_non_letti
 
 st.set_page_config(
@@ -31,7 +32,6 @@ html, body, [class*="css"] {
 footer { display: none !important; }
 #MainMenu { visibility: hidden; }
 
-/* ── LOGIN ── */
 .login-label {
     font-size: 11px;
     font-weight: 700;
@@ -49,7 +49,6 @@ footer { display: none !important; }
     letter-spacing: 0.3px;
 }
 
-/* ── SIDEBAR ── */
 section[data-testid="stSidebar"] {
     background: linear-gradient(180deg, #0d0d1a 0%, #1a1a2e 60%, #16213e 100%);
     border-right: 1px solid #2a2a4a;
@@ -79,7 +78,6 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     padding-left: 13px;
 }
 
-/* ── MAIN ── */
 .main .block-container {
     padding: 2rem 2.5rem;
     max-width: 1400px;
@@ -248,20 +246,18 @@ hr {
 </style>
 """, unsafe_allow_html=True)
 
-# ── SESSION STATE DEFAULTS ─────────────────────────────────────────────────
 for k, v in {
     "pagina": "dashboard",
     "cliente_id": None,
     "cliente_nome": None,
     "reply_to": None,
+    "template_selezionato": None,
 }.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ── AUTH CHECK ─────────────────────────────────────────────────────────────
 utente = check_auth()
 
-# ── LOGIN ──────────────────────────────────────────────────────────────────
 if not utente:
     _, col, _ = st.columns([1, 1, 1])
     with col:
@@ -276,10 +272,7 @@ if not utente:
                 unsafe_allow_html=True
             )
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown(
-            "<p class='login-label'>Accesso riservato</p>",
-            unsafe_allow_html=True
-        )
+        st.markdown("<p class='login-label'>Accesso riservato</p>", unsafe_allow_html=True)
         pagina_login()
         st.markdown(
             "<p class='login-footer'>1908 Group SA &nbsp;·&nbsp; "
@@ -288,11 +281,9 @@ if not utente:
         )
     st.stop()
 
-# ── MESSAGGI NON LETTI ─────────────────────────────────────────────────────
 non_letti = lista_messaggi_non_letti(utente["id"])
 n_non_letti = len(non_letti)
 
-# ── SIDEBAR ────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
     try:
@@ -300,10 +291,7 @@ with st.sidebar:
     except:
         st.markdown("**1908 Group SA**")
 
-    st.markdown(
-        "<hr style='border-color:#2a2a4a;margin:16px 0;'>",
-        unsafe_allow_html=True
-    )
+    st.markdown("<hr style='border-color:#2a2a4a;margin:16px 0;'>", unsafe_allow_html=True)
 
     st.markdown(f"""
     <div class="sidebar-user">
@@ -322,10 +310,7 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown(
-        '<div class="sidebar-nav-label">Navigazione</div>',
-        unsafe_allow_html=True
-    )
+    st.markdown('<div class="sidebar-nav-label">Navigazione</div>', unsafe_allow_html=True)
 
     label_msg = f"Messaggi  ({n_non_letti})" if n_non_letti > 0 else "Messaggi"
 
@@ -333,6 +318,7 @@ with st.sidebar:
         ("dashboard",   "Dashboard"),
         ("clienti",     "Clienti"),
         ("offerte_all", "Offerte"),
+        ("template",    "Template offerte"),
         ("calendario",  "Calendario"),
         ("messaggi",    label_msg),
     ]
@@ -347,12 +333,8 @@ with st.sidebar:
                 st.session_state.cliente_nome = None
             st.rerun()
 
-    st.markdown(
-        "<hr style='border-color:#2a2a4a;margin:16px 0;'>",
-        unsafe_allow_html=True
-    )
+    st.markdown("<hr style='border-color:#2a2a4a;margin:16px 0;'>", unsafe_allow_html=True)
 
-    # Toggle notifiche
     notifiche_on = not st.session_state.get("notifiche_disattivate", False)
     label_notifiche = "Notifiche: ON" if notifiche_on else "Notifiche: OFF"
     if st.button(label_notifiche, key="toggle_notifiche", use_container_width=True):
@@ -362,7 +344,6 @@ with st.sidebar:
     if st.button("Esci", key="nav_logout", use_container_width=True):
         do_logout()
 
-# ── BREADCRUMB ─────────────────────────────────────────────────────────────
 p = st.session_state.pagina
 breadcrumb_map = {
     "dashboard":   "Dashboard",
@@ -371,6 +352,7 @@ breadcrumb_map = {
     "offerte":     f"Clienti  /  {st.session_state.cliente_nome or ''}  /  Offerte",
     "offerte_all": "Offerte",
     "documenti":   f"Clienti  /  {st.session_state.cliente_nome or ''}  /  Documenti",
+    "template":    "Template offerte",
     "calendario":  "Calendario",
     "messaggi":    "Messaggi",
     "admin":       "Amministrazione",
@@ -382,7 +364,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ── ROUTING ────────────────────────────────────────────────────────────────
 if p == "dashboard":
     pagina_dashboard(utente)
 elif p == "clienti":
@@ -393,6 +374,8 @@ elif p in ("offerte", "offerte_all"):
     pagina_offerte(utente, st.session_state.cliente_id, st.session_state.cliente_nome)
 elif p == "documenti":
     pagina_documenti(utente, st.session_state.cliente_id, st.session_state.cliente_nome)
+elif p == "template":
+    pagina_template(utente)
 elif p == "calendario":
     pagina_calendario(utente)
 elif p == "messaggi":
