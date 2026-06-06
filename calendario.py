@@ -278,7 +278,7 @@ def _vista_calendario(utente, anno, mese, ids_visibili, ids_modificabili):
     # Lista eventi del mese
     st.markdown("---")
     st.markdown("**Eventi del mese**")
-    eventi_tutti = eventi_del_mese_multi(anno, mese, ids_visibili)
+    eventi_tutti = eventi_del_mese_multi(anno, mese, tuple(ids_visibili))
     if not eventi_tutti:
         st.info("Nessun evento questo mese.")
     else:
