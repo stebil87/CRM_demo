@@ -9,10 +9,10 @@ def pagina_admin(utente):
         st.error("Accesso riservato agli amministratori.")
         return
 
-    st.title("⚙️ Amministrazione")
+    st.title("Amministrazione")
     st.markdown("---")
 
-    tab_utenti, tab_nuovo = st.tabs(["Gestione utenti", "➕ Nuovo utente"])
+    tab_utenti, tab_nuovo = st.tabs(["Gestione utenti", "Nuovo utente"])
 
     with tab_utenti:
         utenti = lista_utenti()
@@ -21,8 +21,10 @@ def pagina_admin(utente):
         else:
             for u in utenti:
                 nome_completo = f"{u['nome']} {u['cognome']}"
-                stato_badge = "🟢" if u.get("attivo", True) else "🔴"
-                with st.expander(f"{stato_badge} {nome_completo} — {u['email']} [{u['ruolo'].upper()}]"):
+                stato_badge = "Attivo" if u.get("attivo", True) else "Disattivato"
+                with st.expander(
+                    f"{nome_completo} — {u['email']} [{u['ruolo'].upper()}] — {stato_badge}"
+                ):
                     col1, col2, col3 = st.columns(3)
                     with col1:
                         st.markdown(f"**Ruolo attuale:** {u['ruolo']}")
@@ -32,22 +34,25 @@ def pagina_admin(utente):
                             index=RUOLI.index(u["ruolo"]) if u["ruolo"] in RUOLI else 0,
                             key=f"ruolo_{u['id']}"
                         )
-                        if st.button("💾 Salva ruolo", key=f"sr_{u['id']}"):
+                        if st.button("Salva ruolo", key=f"sr_{u['id']}"):
                             aggiorna_ruolo_utente(u["id"], nuovo_ruolo)
-                            st.success("Ruolo aggiornato!")
+                            st.success("Ruolo aggiornato.")
                             st.rerun()
                     with col2:
-                        st.markdown(f"**Stato:** {'Attivo' if u.get('attivo', True) else 'Disattivato'}")
+                        st.markdown(
+                            f"**Stato:** {'Attivo' if u.get('attivo', True) else 'Disattivato'}"
+                        )
                         if u.get("attivo", True) and u["id"] != utente["id"]:
-                            if st.button("🚫 Disattiva", key=f"dis_{u['id']}"):
+                            if st.button("Disattiva", key=f"dis_{u['id']}"):
                                 disattiva_utente(u["id"])
                                 st.rerun()
                     with col3:
-                        st.markdown(f"**Creato il:** {(u.get('created_at') or '')[:10]}")
+                        st.markdown(
+                            f"**Creato il:** {(u.get('created_at') or '')[:10]}"
+                        )
 
     with tab_nuovo:
         st.subheader("Crea nuovo utente")
-        st.info("Il nuovo utente riceverà un'email di conferma da Supabase.")
         with st.form("form_nuovo_utente"):
             col1, col2 = st.columns(2)
             with col1:
@@ -65,20 +70,22 @@ def pagina_admin(utente):
             else:
                 try:
                     sb = get_supabase()
-                    # Crea utente in Supabase Auth
                     res = sb.auth.admin.create_user({
                         "email": email,
                         "password": password_temp,
                         "email_confirm": True
                     })
                     new_user = res.user
-                    # Crea profilo nella tabella utenti
                     from db import crea_utente_profilo
-                    err = crea_utente_profilo(new_user.id, nome, cognome, email, ruolo)
+                    err = crea_utente_profilo(
+                        new_user.id, nome, cognome, email, ruolo
+                    )
                     if err:
                         st.error(f"Utente Auth creato ma errore profilo: {err}")
                     else:
-                        st.success(f"Utente {nome} {cognome} creato con ruolo '{ruolo}'!")
+                        st.success(
+                            f"Utente {nome} {cognome} creato con ruolo '{ruolo}'."
+                        )
                         st.rerun()
                 except Exception as e:
                     st.error(f"Errore: {str(e)}")
