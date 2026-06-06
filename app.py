@@ -21,6 +21,7 @@ print("Functions in db:", [name for name in dir(db) if not name.startswith('_')]
 print("Has lista_template?", hasattr(db, 'lista_template'))
 print("======================")
 
+# Configurazione pagina - sidebar sempre espansa all'avvio
 st.set_page_config(
     page_title="1908 Group — CRM",
     page_icon="1908_Group_Black.png",
@@ -28,6 +29,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# CSS completo
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -41,6 +43,14 @@ html, body, [class*="css"] {
 [data-testid="stStatusWidget"] { display: none !important; }
 footer { display: none !important; }
 #MainMenu { visibility: hidden; }
+
+/* Forza la sidebar ad essere visibile se bloccata */
+[data-testid="stSidebar"] {
+    min-width: 260px !important;
+    width: 260px !important;
+    transform: translateX(0px) !important;
+    display: block !important;
+}
 
 .login-label {
     font-size: 11px;
@@ -62,7 +72,6 @@ footer { display: none !important; }
 section[data-testid="stSidebar"] {
     background: linear-gradient(180deg, #0d0d1a 0%, #1a1a2e 60%, #16213e 100%);
     border-right: 1px solid #2a2a4a;
-    width: 260px !important;
 }
 section[data-testid="stSidebar"] * {
     color: #e8e8f0 !important;
@@ -256,6 +265,7 @@ hr {
 </style>
 """, unsafe_allow_html=True)
 
+# Inizializzazione session state
 for k, v in {
     "pagina": "dashboard",
     "cliente_id": None,
@@ -293,6 +303,13 @@ if not utente:
 
 non_letti = lista_messaggi_non_letti(utente["id"])
 n_non_letti = len(non_letti)
+
+# Pulsante di ripristino sidebar (in alto a destra)
+col_reset1, col_reset2, col_reset3 = st.columns([0.85, 0.05, 0.1])
+with col_reset3:
+    if st.button("🔓 Apri menu", key="unlock_sidebar", help="Riapre il menu laterale se si è bloccato"):
+        st.session_state.sidebar_state = "expanded"
+        st.rerun()
 
 with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
