@@ -16,6 +16,51 @@ def get_sb():
     key = st.secrets["SUPABASE_SERVICE_KEY"]
     return create_client(url, key)
 
+def compleanni_in_arrivo(giorni=7):
+    sb = get_sb()
+    try:
+        from datetime import date
+        oggi = date.today()
+        risultati = []
+        res = sb.table("clienti").select(
+            "id, nome, cognome, data_nascita, email, telefono"
+        ).eq("tipo", "fisica").not_.is_("data_nascita", "null").execute()
+
+        for c in (res.data or []):
+            try:
+                dn = c.get("data_nascita", "")
+                if not dn:
+                    continue
+                # Supporta sia DD/MM/YYYY che YYYY-MM-DD
+                if "/" in dn:
+                    parts = dn.split("/")
+                    giorno, mese = int(parts[0]), int(parts[1])
+                else:
+                    parts = dn.split("-")
+                    giorno, mese = int(parts[2]), int(parts[1])
+
+                # Compleanno quest'anno
+                try:
+                    compleanno = date(oggi.year, mese, giorno)
+                except:
+                    continue
+
+                # Se già passato quest'anno, prendi il prossimo anno
+                if compleanno < oggi:
+                    compleanno = date(oggi.year + 1, mese, giorno)
+
+                giorni_mancanti = (compleanno - oggi).days
+                if giorni_mancanti <= giorni:
+                    c["compleanno"] = compleanno.isoformat()
+                    c["giorni_mancanti"] = giorni_mancanti
+                    risultati.append(c)
+            except:
+                continue
+
+        return sorted(risultati, key=lambda x: x["giorni_mancanti"])
+    except:
+        return []
+
 # ── INBOX EMAIL CONDIVISA ─────────────────────────────
 
 def lista_inbox_nuove():
