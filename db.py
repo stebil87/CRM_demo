@@ -708,10 +708,13 @@ def crea_template(dati, user_id):
     sb = get_sb()
     try:
         dati["created_by"] = user_id
+        # Rimuovi condiviso se presente (campo non esiste più)
+        dati.pop("condiviso", None)
         res = sb.table("template_offerte").insert(dati).execute()
         _invalida_cache_template()
         return res.data[0] if res.data else None
-    except:
+    except Exception as e:
+        st.write(f"DEBUG crea_template errore: {e}")
         return None
 
 def aggiorna_template(template_id, dati):
