@@ -23,9 +23,20 @@ def pagina_template(utente):
     with tab_lista:
         _lista_template(utente)
 
-
 def _lista_template(utente):
-    templates = lista_template(utente["id"])
+    from supabase import create_client
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_SERVICE_KEY"]
+    sb = create_client(url, key)
+    
+    try:
+        res = sb.table("template_offerte").select("*").eq(
+            "created_by", utente["id"]
+        ).execute()
+        templates = res.data or []
+    except Exception as e:
+        st.error(f"Errore: {e}")
+        return
 
     if not templates:
         st.info("Nessun template disponibile. Creane uno dalla scheda accanto.")
