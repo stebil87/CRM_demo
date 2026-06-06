@@ -12,7 +12,7 @@ from auth import is_admin
 
 TIPI = ["appuntamento", "riunione", "chiamata", "scadenza", "altro"]
 COLORI = {
-    "appuntamento": "#1a1a2e",
+    "appuntamento": "#1a1a2e",eventi = eventi_del_mese_multi(anno, mese, tuple(ids_visibili))
     "riunione":     "#0f3460",
     "chiamata":     "#533483",
     "scadenza":     "#e94560",
@@ -105,7 +105,7 @@ def _vista_calendario(utente, anno, mese, ids_visibili, ids_modificabili):
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    eventi = eventi_del_mese_multi(anno, mese, ids_visibili)
+    eventi = eventi_del_mese_multi(anno, mese, tuple(ids_visibili))
 
     eventi_per_giorno = {}
     for e in eventi:
