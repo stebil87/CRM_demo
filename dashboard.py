@@ -136,35 +136,22 @@ def pagina_dashboard(utente):
         widget_note(utente)
 
     with col_inbox:
+        st.markdown("**Email in arrivo**")
         st.markdown(
-            "<div style='display:flex;align-items:center;"
-            "justify-content:space-between;margin-bottom:12px;'>"
-            "<span style='font-size:13px;font-weight:600;color:#1a1a2e;'>"
-            "Email in arrivo</span>"
             "<span style='background:#eaeaf0;color:#888;font-size:10px;"
             "font-weight:600;padding:2px 8px;border-radius:10px;'>"
-            "Prossimamente</span>"
-            "</div>",
+            "Prossimamente</span>",
             unsafe_allow_html=True
         )
-        st.markdown(
-            "<div style='background:white;border:1px solid #eaeaf0;"
-            "border-radius:8px;padding:28px 16px;text-align:center;'>"
-            "<div style='font-size:32px;margin-bottom:10px;color:#dddde8;'>✉</div>"
-            "<div style='font-size:13px;font-weight:600;color:#1a1a2e;"
-            "margin-bottom:6px;'>Inbox condivisa</div>"
-            "<div style='font-size:12px;color:#aaa;line-height:1.6;'>"
-            "Le email ricevute su catering@...<br>"
-            "appariranno qui e potranno essere<br>"
-            "prese in carico dal team.</div>"
-            "</div>",
-            unsafe_allow_html=True
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.info(
+            "Le email ricevute su catering@... appariranno qui "
+            "e potranno essere prese in carico dal team."
         )
 
     with col_avvisi:
         from eventi_catering import widget_avvisi_eventi
         widget_avvisi_eventi(utente)
-
         if is_event_manager(utente):
             nuovi = lista_eventi_catering(solo_nuovo=True)
             if nuovi:
@@ -185,9 +172,6 @@ def pagina_dashboard(utente):
                     if st.button("Gestisci", key=f"dash_ev_{ev['id']}"):
                         st.session_state.pagina = "eventi"
                         st.rerun()
-
-    st.markdown("---")
-
     # ── AGENDA + FOLLOW-UP ──
     col_ev, col_fu_oggi, col_fu_prox = st.columns(3)
 
