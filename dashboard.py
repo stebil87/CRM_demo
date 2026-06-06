@@ -34,71 +34,107 @@ def pagina_dashboard(utente):
     st.markdown("---")
 
     # ── FOLLOW-UP ──
-    col_oggi, col_prox = st.columns(2)
+    # ── EVENTI OGGI ──
+    from db import eventi_oggi
+    ev_oggi = eventi_oggi(utente["id"])
 
-    with col_oggi:
+    col_ev, col_fu_oggi, col_fu_prox = st.columns(3)
+
+    with col_ev:
+        st.markdown("**Agenda di oggi**")
+        if ev_oggi:
+            for e in ev_oggi:
+                try:
+                    ora = datetime.fromisoformat(
+                        e["data_inizio"].replace("Z","")
+                    ).strftime("%H:%M")
+                except:
+                    ora = ""
+                colore = {
+                    "appuntamento": "#1a1a2e",
+                    "riunione": "#0f3460",
+                    "chiamata": "#533483",
+                    "scadenza": "#e94560",
+                    "altro": "#6a6aae",
+                }.get(e.get("tipo","altro"), "#1a1a2e")
+                st.markdown(
+                    f"<div style='background:white;border:1px solid #eaeaf0;"
+                    f"border-left:3px solid {colore};border-radius:8px;"
+                    f"padding:10px 14px;margin-bottom:8px;'>"
+                    f"<div style='font-size:13px;font-weight:600;color:#1a1a2e;'>"
+                    f"{ora} &nbsp; {e['titolo']}</div>"
+                    f"<div style='font-size:11px;color:#888;margin-top:3px;'>"
+                    f"{e.get('tipo','').upper()}"
+                    f"{' · ' + e['luogo'] if e.get('luogo') else ''}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+        else:
+            st.markdown(
+                "<div style='background:#f0faf4;border:1px solid #c3e6cb;"
+                "border-radius:8px;padding:12px 16px;font-size:13px;color:#2d6a4f;'>"
+                "Nessun evento oggi.</div>",
+                unsafe_allow_html=True
+            )
+
+    with col_fu_oggi:
         st.markdown("**Follow-up di oggi**")
         if oggi:
             for f in oggi:
                 cliente = f.get("clienti", {})
                 nome_cliente = cliente.get("ragione_sociale") or \
                     f"{cliente.get('nome','')} {cliente.get('cognome','')}".strip()
-                with st.container():
-                    st.markdown(
-                        f"<div style='background:white;border:1px solid #eaeaf0;"
-                        f"border-left:3px solid #1a1a2e;border-radius:8px;"
-                        f"padding:10px 14px;margin-bottom:8px;'>"
-                        f"<div style='font-size:13px;font-weight:600;color:#1a1a2e;'>{f['titolo']}</div>"
-                        f"<div style='font-size:11px;color:#888;margin-top:3px;'>{nome_cliente}</div>"
-                        f"</div>",
-                        unsafe_allow_html=True
-                    )
-                    if can_edit(utente):
-                        if st.button("Fatto", key=f"oggi_{f['id']}"):
-                            from db import aggiorna_voce_diario
-                            aggiorna_voce_diario(f["id"], {"followup_fatto": True})
-                            st.rerun()
+                st.markdown(
+                    f"<div style='background:white;border:1px solid #eaeaf0;"
+                    f"border-left:3px solid #1a1a2e;border-radius:8px;"
+                    f"padding:10px 14px;margin-bottom:8px;'>"
+                    f"<div style='font-size:13px;font-weight:600;'>{f['titolo']}</div>"
+                    f"<div style='font-size:11px;color:#888;margin-top:3px;'>{nome_cliente}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+                if can_edit(utente):
+                    if st.button("Fatto", key=f"oggi_{f['id']}"):
+                        from db import aggiorna_voce_diario
+                        aggiorna_voce_diario(f["id"], {"followup_fatto": True})
+                        st.rerun()
         else:
             st.markdown(
                 "<div style='background:#f0faf4;border:1px solid #c3e6cb;"
                 "border-radius:8px;padding:12px 16px;font-size:13px;color:#2d6a4f;'>"
-                "Nessun follow-up previsto per oggi.</div>",
+                "Nessun follow-up oggi.</div>",
                 unsafe_allow_html=True
             )
 
-    with col_prox:
-        st.markdown("**Prossimi 7 giorni**")
+    with col_fu_prox:
+        st.markdown("**Follow-up prossimi 7 giorni**")
         if prossimi:
             for f in prossimi:
                 cliente = f.get("clienti", {})
                 nome_cliente = cliente.get("ragione_sociale") or \
                     f"{cliente.get('nome','')} {cliente.get('cognome','')}".strip()
-                data_str = f.get("followup_data", "")
-                with st.container():
-                    st.markdown(
-                        f"<div style='background:white;border:1px solid #eaeaf0;"
-                        f"border-left:3px solid #6a6aae;border-radius:8px;"
-                        f"padding:10px 14px;margin-bottom:8px;'>"
-                        f"<div style='font-size:13px;font-weight:600;color:#1a1a2e;'>{f['titolo']}</div>"
-                        f"<div style='font-size:11px;color:#888;margin-top:3px;'>"
-                        f"{nome_cliente} &nbsp;·&nbsp; {data_str}</div>"
-                        f"</div>",
-                        unsafe_allow_html=True
-                    )
-                    if can_edit(utente):
-                        if st.button("Fatto", key=f"prox_{f['id']}"):
-                            from db import aggiorna_voce_diario
-                            aggiorna_voce_diario(f["id"], {"followup_fatto": True})
-                            st.rerun()
+                st.markdown(
+                    f"<div style='background:white;border:1px solid #eaeaf0;"
+                    f"border-left:3px solid #6a6aae;border-radius:8px;"
+                    f"padding:10px 14px;margin-bottom:8px;'>"
+                    f"<div style='font-size:13px;font-weight:600;'>{f['titolo']}</div>"
+                    f"<div style='font-size:11px;color:#888;margin-top:3px;'>"
+                    f"{nome_cliente} · {f.get('followup_data','')}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+                if can_edit(utente):
+                    if st.button("Fatto", key=f"prox_{f['id']}"):
+                        from db import aggiorna_voce_diario
+                        aggiorna_voce_diario(f["id"], {"followup_fatto": True})
+                        st.rerun()
         else:
             st.markdown(
                 "<div style='background:#f0faf4;border:1px solid #c3e6cb;"
                 "border-radius:8px;padding:12px 16px;font-size:13px;color:#2d6a4f;'>"
-                "Nessun follow-up nei prossimi 7 giorni.</div>",
+                "Nessun follow-up in arrivo.</div>",
                 unsafe_allow_html=True
             )
-
-    st.markdown("---")
 
     # ── GRAFICI ──
     col_a, col_b, col_c = st.columns(3)
