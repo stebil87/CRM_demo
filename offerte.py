@@ -1,25 +1,25 @@
 import streamlit as st
 from datetime import date
 import json
-from db import lista_offerte, get_offerta, crea_offerta, aggiorna_offerta, nuova_versione_offerta
+from db import lista_offerte, get_offerta, crea_offerta, aggiorna_offerta, nuova_versione_offerta, get_cliente
 from auth import can_edit
+from pdf_offerta import genera_pdf_offerta
 
 STATI_OFFERTA = ["bozza", "inviata", "accettata", "rifiutata", "scaduta"]
 VALUTE = ["CHF", "EUR", "USD"]
-ICONE_STATO = {"bozza": "📝", "inviata": "📤", "accettata": "✅", "rifiutata": "❌", "scaduta": "⏰"}
 
 def pagina_offerte(utente, cliente_id=None, cliente_nome=None):
     col1, col2 = st.columns([1, 8])
     with col1:
-        if st.button("← Indietro"):
+        if st.button("Indietro"):
             st.session_state.pagina = "clienti" if cliente_id else "dashboard"
             st.rerun()
 
-    titolo = f"📄 Offerte — {cliente_nome}" if cliente_nome else "📄 Tutte le offerte"
+    titolo = f"Offerte — {cliente_nome}" if cliente_nome else "Tutte le offerte"
     st.title(titolo)
     st.markdown("---")
 
-    tab_lista, tab_nuova = st.tabs(["Lista offerte", "➕ Nuova offerta"])
+    tab_lista, tab_nuova = st.tabs(["Lista offerte", "Nuova offerta"])
 
     with tab_nuova:
         if not can_edit(utente):
@@ -35,13 +35,12 @@ def pagina_offerte(utente, cliente_id=None, cliente_nome=None):
             st.info("Nessuna offerta trovata.")
         else:
             for o in offerte:
-                ic = ICONE_STATO.get(o["stato"], "📄")
                 cliente_info = o.get("clienti") or {}
                 nome_cl = cliente_info.get("ragione_sociale") or f"{cliente_info.get('nome','')} {cliente_info.get('cognome','')}".strip()
-                label = f"{ic} **{o['numero']}** — {o['titolo']}"
+                label = f"{o['numero']}   |   {o['titolo']}"
                 if not cliente_id:
-                    label += f" | {nome_cl}"
-                label += f" | {o.get('valuta','CHF')} {float(o.get('importo') or 0):,.2f} | v{o.get('versione',1)}"
+                    label += f"   |   {nome_cl}"
+                label += f"   |   {o.get('valuta','CHF')} {float(o.get('importo') or 0):,.2f}   |   {o.get('stato','').upper()}   |   v{o.get('versione',1)}"
 
                 with st.expander(label):
                     _scheda_offerta(o, utente)
@@ -61,7 +60,6 @@ def _scheda_offerta(o, utente):
     if o.get("descrizione"):
         st.markdown(f"**Descrizione:** {o['descrizione']}")
 
-    # Righe offerta
     righe = o.get("righe") or []
     if isinstance(righe, str):
         try:
@@ -71,24 +69,33 @@ def _scheda_offerta(o, utente):
     if righe:
         st.markdown("**Voci:**")
         for r in righe:
-            st.markdown(f"- {r.get('descrizione','—')} — {r.get('qta',1)} x {float(r.get('prezzo',0)):,.2f} = **{float(r.get('totale',0)):,.2f}**")
+            st.markdown(f"- {r.get('descrizione','—')}   {r.get('qta',1)} x {float(r.get('prezzo',0)):,.2f} = **{float(r.get('totale',0)):,.2f}**")
 
     if o.get("note"):
         st.markdown(f"**Note:** {o['note']}")
 
-    if o.get("offerta_padre"):
-        st.caption(f"Revisione di offerta precedente (ID: {o['offerta_padre'][:8]}...)")
+    # Download PDF
+    cliente_dati = get_cliente(o["cliente_id"]) if o.get("cliente_id") else {}
+    pdf_bytes = genera_pdf_offerta(o, cliente_dati)
+    if pdf_bytes:
+        st.download_button(
+            label="Scarica PDF offerta",
+            data=pdf_bytes,
+            file_name=f"{o['numero']}.pdf",
+            mime="application/pdf",
+            key=f"pdf_{o['id']}"
+        )
 
     if can_edit(utente):
         col1, col2, col3 = st.columns(3)
         with col1:
-            if st.button("✏️ Modifica", key=f"omod_{o['id']}"):
+            if st.button("Modifica", key=f"omod_{o['id']}"):
                 st.session_state[f"edit_offerta_{o['id']}"] = True
         with col2:
-            if st.button("📋 Nuova versione", key=f"onv_{o['id']}"):
+            if st.button("Nuova versione", key=f"onv_{o['id']}"):
                 nuova = nuova_versione_offerta(o["id"], st.session_state.utente["id"])
                 if nuova:
-                    st.success(f"Creata versione {nuova['versione']}!")
+                    st.success(f"Creata versione {nuova['versione']}.")
                     st.rerun()
         with col3:
             stati_successivi = [s for s in STATI_OFFERTA if s != o["stato"]]
@@ -102,27 +109,26 @@ def _scheda_offerta(o, utente):
         _form_modifica_offerta(o, utente)
 
 def _form_righe(righe_default=None, key_prefix="nr"):
-    """Editor righe offerta."""
     if "righe_temp" not in st.session_state or st.session_state.get(f"{key_prefix}_init") != key_prefix:
         st.session_state.righe_temp = righe_default or []
         st.session_state[f"{key_prefix}_init"] = key_prefix
 
     st.markdown("**Voci dell'offerta**")
     totale_generale = 0.0
-
     righe_aggiornate = []
+
     for i, r in enumerate(st.session_state.righe_temp):
         col1, col2, col3, col4 = st.columns([4, 1, 2, 1])
         with col1:
-            desc = st.text_input("Descrizione", value=r.get("descrizione",""), key=f"{key_prefix}_d{i}")
+            desc = st.text_input("Descrizione", value=r.get("descrizione", ""), key=f"{key_prefix}_d{i}")
         with col2:
-            qta = st.number_input("Qtà", min_value=0.0, value=float(r.get("qta",1)), step=1.0, key=f"{key_prefix}_q{i}")
+            qta = st.number_input("Qta", min_value=0.0, value=float(r.get("qta", 1)), step=1.0, key=f"{key_prefix}_q{i}")
         with col3:
-            prezzo = st.number_input("Prezzo unit.", min_value=0.0, value=float(r.get("prezzo",0)), step=10.0, key=f"{key_prefix}_p{i}")
+            prezzo = st.number_input("Prezzo unit.", min_value=0.0, value=float(r.get("prezzo", 0)), step=10.0, key=f"{key_prefix}_p{i}")
         with col4:
             tot = qta * prezzo
             st.metric("Totale", f"{tot:,.2f}")
-            if st.button("🗑️", key=f"{key_prefix}_del{i}"):
+            if st.button("Rimuovi", key=f"{key_prefix}_del{i}"):
                 st.session_state.righe_temp.pop(i)
                 st.rerun()
         righe_aggiornate.append({"descrizione": desc, "qta": qta, "prezzo": prezzo, "totale": tot})
@@ -130,11 +136,11 @@ def _form_righe(righe_default=None, key_prefix="nr"):
 
     st.session_state.righe_temp = righe_aggiornate
 
-    if st.button("➕ Aggiungi riga", key=f"{key_prefix}_add"):
-        st.session_state.righe_temp.append({"descrizione":"", "qta":1, "prezzo":0.0, "totale":0.0})
+    if st.button("Aggiungi riga", key=f"{key_prefix}_add"):
+        st.session_state.righe_temp.append({"descrizione": "", "qta": 1, "prezzo": 0.0, "totale": 0.0})
         st.rerun()
 
-    st.markdown(f"**Totale offerta: {totale_generale:,.2f}**")
+    st.markdown(f"**Totale: {totale_generale:,.2f}**")
     return st.session_state.righe_temp, totale_generale
 
 def _form_nuova_offerta(utente, cliente_id):
@@ -150,15 +156,15 @@ def _form_nuova_offerta(utente, cliente_id):
             data_scadenza = st.date_input("Data scadenza", value=None)
         descrizione = st.text_area("Descrizione")
         note = st.text_area("Note interne")
-        submitted = st.form_submit_button("Crea offerta")
+        submitted = st.form_submit_button("Crea e genera PDF")
 
     if submitted:
         if not titolo:
-            st.error("Il titolo è obbligatorio.")
+            st.error("Il titolo e obbligatorio.")
         else:
             righe = st.session_state.get("righe_temp", [])
             importo = sum(r.get("totale", 0) for r in righe)
-            crea_offerta({
+            nuova = crea_offerta({
                 "cliente_id": cliente_id,
                 "titolo": titolo,
                 "descrizione": descrizione,
@@ -171,7 +177,18 @@ def _form_nuova_offerta(utente, cliente_id):
                 "note": note,
             }, utente["id"])
             st.session_state.righe_temp = []
-            st.success("Offerta creata!")
+            if nuova:
+                cliente_dati = get_cliente(cliente_id) or {}
+                pdf_bytes = genera_pdf_offerta(nuova, cliente_dati)
+                st.success(f"Offerta {nuova['numero']} creata.")
+                if pdf_bytes:
+                    st.download_button(
+                        label="Scarica PDF offerta",
+                        data=pdf_bytes,
+                        file_name=f"{nuova['numero']}.pdf",
+                        mime="application/pdf",
+                        key="pdf_nuova"
+                    )
             st.rerun()
 
     st.markdown("---")
@@ -189,22 +206,22 @@ def _form_modifica_offerta(o, utente):
         col1, col2 = st.columns(2)
         with col1:
             titolo = st.text_input("Titolo *", value=o["titolo"])
-            valuta = st.selectbox("Valuta", VALUTE, index=VALUTE.index(o.get("valuta","CHF")) if o.get("valuta") in VALUTE else 0)
+            valuta = st.selectbox("Valuta", VALUTE, index=VALUTE.index(o.get("valuta", "CHF")) if o.get("valuta") in VALUTE else 0)
             data_emissione = st.date_input("Data emissione", value=date.fromisoformat(o["data_emissione"]) if o.get("data_emissione") else date.today())
         with col2:
             stato = st.selectbox("Stato", STATI_OFFERTA, index=STATI_OFFERTA.index(o["stato"]) if o["stato"] in STATI_OFFERTA else 0)
             data_scadenza = st.date_input("Scadenza", value=date.fromisoformat(o["data_scadenza"]) if o.get("data_scadenza") else None)
-        descrizione = st.text_area("Descrizione", value=o.get("descrizione",""))
-        note = st.text_area("Note", value=o.get("note",""))
+        descrizione = st.text_area("Descrizione", value=o.get("descrizione", ""))
+        note = st.text_area("Note", value=o.get("note", ""))
         col1, col2 = st.columns(2)
         with col1:
-            salva = st.form_submit_button("💾 Salva", use_container_width=True)
+            salva = st.form_submit_button("Salva", use_container_width=True)
         with col2:
             annulla = st.form_submit_button("Annulla", use_container_width=True)
 
     if salva:
         righe = st.session_state.get("righe_temp", righe_esistenti)
-        importo = sum(r.get("totale",0) for r in righe)
+        importo = sum(r.get("totale", 0) for r in righe)
         aggiorna_offerta(o["id"], {
             "titolo": titolo, "descrizione": descrizione, "importo": importo,
             "valuta": valuta, "stato": stato,
