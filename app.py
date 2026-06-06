@@ -8,6 +8,7 @@ from documenti import pagina_documenti
 from admin import pagina_admin
 from messaggi import pagina_messaggi
 from db import lista_messaggi_non_letti
+from calendario import pagina_calendario
 
 st.set_page_config(
     page_title="1908 Group — CRM",
