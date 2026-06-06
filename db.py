@@ -2,8 +2,17 @@ from supabase import create_client
 import streamlit as st
 from datetime import datetime, date, timedelta
 import calendar as cal_lib
-from datetime import datetime, date, timedelta, timezone
-import pytz
+
+try:
+    import pytz
+    TIMEZONE = pytz.timezone("Europe/Zurich")
+except:
+    TIMEZONE = None
+
+def ora_locale():
+    if TIMEZONE:
+        return datetime.now(TIMEZONE)
+    return datetime.now()
 
 # ── CLIENT ────────────────────────────────────────────
 
@@ -13,12 +22,14 @@ def get_supabase():
     key = st.secrets["SUPABASE_KEY"]
     return create_client(url, key)
 
+def get_sb():
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_SERVICE_KEY"]
+    return create_client(url, key)
+
+# ── LOG ───────────────────────────────────────────────
+
 def log_attivita(utente_id, azione, entita, entita_id=None, dettagli=None):
-    """
-    Registra un'operazione nel log.
-    azione: "creato", "modificato", "eliminato", "inviato", "accesso"
-    entita: "cliente", "offerta", "evento", "diario", "documento", ecc.
-    """
     sb = get_sb()
     try:
         sb.table("activity_log").insert({
@@ -29,117 +40,7 @@ def log_attivita(utente_id, azione, entita, entita_id=None, dettagli=None):
             "dettagli": dettagli or {}
         }).execute()
     except:
-        pass  # Il log non deve mai bloccare l'operazione principale
-
-def get_sb():
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_SERVICE_KEY"]
-    return create_client(url, key)
-
-TIMEZONE = pytz.timezone("Europe/Zurich")
-
-def ora_locale():
-    return datetime.now(TIMEZONE)
-
-def compleanni_in_arrivo(giorni=7):
-    sb = get_sb()
-    try:
-        from datetime import date
-        oggi = date.today()
-        risultati = []
-        res = sb.table("clienti").select(
-            "id, nome, cognome, data_nascita, email, telefono"
-        ).eq("tipo", "fisica").not_.is_("data_nascita", "null").execute()
-
-        for c in (res.data or []):
-            try:
-                dn = c.get("data_nascita", "")
-                if not dn:
-                    continue
-                # Supporta sia DD/MM/YYYY che YYYY-MM-DD
-                if "/" in dn:
-                    parts = dn.split("/")
-                    giorno, mese = int(parts[0]), int(parts[1])
-                else:
-                    parts = dn.split("-")
-                    giorno, mese = int(parts[2]), int(parts[1])
-
-                # Compleanno quest'anno
-                try:
-                    compleanno = date(oggi.year, mese, giorno)
-                except:
-                    continue
-
-                # Se già passato quest'anno, prendi il prossimo anno
-                if compleanno < oggi:
-                    compleanno = date(oggi.year + 1, mese, giorno)
-
-                giorni_mancanti = (compleanno - oggi).days
-                if giorni_mancanti <= giorni:
-                    c["compleanno"] = compleanno.isoformat()
-                    c["giorni_mancanti"] = giorni_mancanti
-                    risultati.append(c)
-            except:
-                continue
-
-        return sorted(risultati, key=lambda x: x["giorni_mancanti"])
-    except:
-        return []
-
-# ── INBOX EMAIL CONDIVISA ─────────────────────────────
-
-def lista_inbox_nuove():
-    """Email non ancora prese in carico."""
-    sb = get_sb()
-    try:
-        res = sb.table("inbox_email").select(
-            "*, gestore:utenti!inbox_email_presa_in_carico_da_fkey(nome, cognome)"
-        ).eq("presa_in_carico", False).order(
-            "data_ricezione", desc=True
-        ).execute()
-        return res.data or []
-    except:
-        return []
-
-def lista_inbox_storico():
-    """Email già prese in carico."""
-    sb = get_sb()
-    try:
-        res = sb.table("inbox_email").select(
-            "*, gestore:utenti!inbox_email_presa_in_carico_da_fkey(nome, cognome)"
-        ).eq("presa_in_carico", True).order(
-            "data_ricezione", desc=True
-        ).execute()
-        return res.data or []
-    except:
-        return []
-
-def prendi_in_carico_email(email_id, utente_id):
-    sb = get_sb()
-    try:
-        from datetime import datetime
-        sb.table("inbox_email").update({
-            "presa_in_carico": True,
-            "presa_in_carico_da": utente_id,
-            "presa_in_carico_at": datetime.utcnow().isoformat(),
-            "letta": True
-        }).eq("id", email_id).execute()
-        return None
-    except Exception as e:
-        return str(e)
-
-def inserisci_email_inbox(mittente, oggetto, corpo):
-    """Chiamata dal webhook o manualmente per inserire email ricevute."""
-    sb = get_sb()
-    try:
-        sb.table("inbox_email").insert({
-            "mittente": mittente,
-            "oggetto": oggetto,
-            "corpo": corpo,
-        }).execute()
-        return None
-    except Exception as e:
-        return str(e)
+        pass
 
 # ── AUTH ──────────────────────────────────────────────
 
@@ -152,54 +53,6 @@ def get_profilo_utente(user_id):
         return None
     except:
         return None
-
-# ── CONDIVISIONI TEMPLATE ─────────────────────────────
-
-def lista_template(user_id):
-    from supabase import create_client
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_SERVICE_KEY"]
-    sb = create_client(url, key)
-    try:
-        res = sb.table("template_offerte").select("*").eq("created_by", user_id).execute()
-        return res.data or []
-    except Exception as e:
-        return []
-
-
-def get_condivisioni_template(template_id):
-    """Chi ha accesso a questo template."""
-    sb = get_sb()
-    try:
-        res = sb.table("template_condivisioni").select(
-            "*, utente:utenti(id, nome, cognome, email)"
-        ).eq("template_id", template_id).execute()
-        return res.data or []
-    except:
-        return []
-
-def condividi_template(template_id, utente_id):
-    sb = get_sb()
-    try:
-        sb.table("template_condivisioni").upsert({
-            "template_id": template_id,
-            "utente_id": utente_id,
-        }, on_conflict="template_id,utente_id").execute()
-        _invalida_cache_template()
-        return None
-    except Exception as e:
-        return str(e)
-
-def rimuovi_condivisione_template(template_id, utente_id):
-    sb = get_sb()
-    try:
-        sb.table("template_condivisioni").delete().eq(
-            "template_id", template_id
-        ).eq("utente_id", utente_id).execute()
-        _invalida_cache_template()
-        return None
-    except Exception as e:
-        return str(e)
 
 def crea_utente_profilo(user_id, nome, cognome, email, ruolo):
     sb = get_sb()
@@ -290,26 +143,76 @@ def crea_cliente(dati, user_id):
         dati["created_by"] = user_id
         res = sb.table("clienti").insert(dati).execute()
         _invalida_cache_clienti()
+        if res.data:
+            log_attivita(user_id, "creato", "cliente", res.data[0]["id"], {
+                "nome": dati.get("ragione_sociale") or
+                        f"{dati.get('nome','')} {dati.get('cognome','')}".strip()
+            })
         return res.data[0] if res.data else None
     except:
         return None
 
-def aggiorna_cliente(cliente_id, dati):
+def aggiorna_cliente(cliente_id, dati, user_id=None):
     sb = get_sb()
     try:
         dati["updated_at"] = datetime.utcnow().isoformat()
         sb.table("clienti").update(dati).eq("id", cliente_id).execute()
         _invalida_cache_clienti()
+        if user_id:
+            log_attivita(user_id, "modificato", "cliente", cliente_id)
     except:
         pass
 
-def elimina_cliente(cliente_id):
+def elimina_cliente(cliente_id, user_id=None):
     sb = get_sb()
     try:
         sb.table("clienti").delete().eq("id", cliente_id).execute()
         _invalida_cache_clienti()
+        if user_id:
+            log_attivita(user_id, "eliminato", "cliente", cliente_id)
     except:
         pass
+
+def compleanni_in_arrivo(giorni=30):
+    sb = get_sb()
+    try:
+        oggi = date.today()
+        risultati = []
+        res = sb.table("clienti").select(
+            "id, nome, cognome, data_nascita, email, telefono"
+        ).eq("tipo", "fisica").execute()
+
+        for c in (res.data or []):
+            try:
+                dn = c.get("data_nascita", "")
+                if not dn:
+                    continue
+                if "/" in str(dn):
+                    parts = str(dn).split("/")
+                    giorno, mese = int(parts[0]), int(parts[1])
+                else:
+                    parts = str(dn).split("-")
+                    giorno, mese = int(parts[2]), int(parts[1])
+
+                try:
+                    compleanno = date(oggi.year, mese, giorno)
+                except:
+                    continue
+
+                if compleanno < oggi:
+                    compleanno = date(oggi.year + 1, mese, giorno)
+
+                giorni_mancanti = (compleanno - oggi).days
+                if giorni_mancanti <= giorni:
+                    c["compleanno"] = compleanno.isoformat()
+                    c["giorni_mancanti"] = giorni_mancanti
+                    risultati.append(c)
+            except:
+                continue
+
+        return sorted(risultati, key=lambda x: x["giorni_mancanti"])
+    except:
+        return []
 
 # ── DIARIO ────────────────────────────────────────────
 
@@ -324,7 +227,7 @@ def lista_diario(cliente_id):
     except:
         return []
 
-def _invalida_cache_diario(cliente_id=None):
+def _invalida_cache_diario():
     lista_diario.clear()
     followup_oggi.clear()
     followup_prossimi7.clear()
@@ -335,23 +238,32 @@ def crea_voce_diario(dati, user_id):
         dati["created_by"] = user_id
         res = sb.table("diario").insert(dati).execute()
         _invalida_cache_diario()
+        if res.data:
+            log_attivita(user_id, "creato", "diario", res.data[0]["id"], {
+                "tipo": dati.get("tipo", ""),
+                "titolo": dati.get("titolo", "")
+            })
         return res.data[0] if res.data else None
     except:
         return None
 
-def aggiorna_voce_diario(voce_id, dati):
+def aggiorna_voce_diario(voce_id, dati, user_id=None):
     sb = get_sb()
     try:
         sb.table("diario").update(dati).eq("id", voce_id).execute()
         _invalida_cache_diario()
+        if user_id:
+            log_attivita(user_id, "modificato", "diario", voce_id)
     except:
         pass
 
-def elimina_voce_diario(voce_id):
+def elimina_voce_diario(voce_id, user_id=None):
     sb = get_sb()
     try:
         sb.table("diario").delete().eq("id", voce_id).execute()
         _invalida_cache_diario()
+        if user_id:
+            log_attivita(user_id, "eliminato", "diario", voce_id)
     except:
         pass
 
@@ -424,16 +336,25 @@ def crea_offerta(dati, user_id):
         dati["numero"] = f"OFF-{anno}-{n:04d}"
         res = sb.table("offerte").insert(dati).execute()
         _invalida_cache_offerte()
+        if res.data:
+            log_attivita(user_id, "creato", "offerta", res.data[0]["id"], {
+                "numero": dati["numero"],
+                "titolo": dati.get("titolo", "")
+            })
         return res.data[0] if res.data else None
     except:
         return None
 
-def aggiorna_offerta(offerta_id, dati):
+def aggiorna_offerta(offerta_id, dati, user_id=None):
     sb = get_sb()
     try:
         dati["updated_at"] = datetime.utcnow().isoformat()
         sb.table("offerte").update(dati).eq("id", offerta_id).execute()
         _invalida_cache_offerte()
+        if user_id:
+            log_attivita(user_id, "modificato", "offerta", offerta_id, {
+                "stato": dati.get("stato", "")
+            })
     except:
         pass
 
@@ -451,6 +372,11 @@ def nuova_versione_offerta(offerta_id, user_id):
         nuova["created_by"] = user_id
         res = sb.table("offerte").insert(nuova).execute()
         _invalida_cache_offerte()
+        if res.data:
+            log_attivita(user_id, "creato", "offerta", res.data[0]["id"], {
+                "numero": nuova.get("numero", ""),
+                "versione": nuova["versione"]
+            })
         return res.data[0] if res.data else None
     except:
         return None
@@ -490,6 +416,9 @@ def carica_documento(cliente_id, file_bytes, nome_file, tipo_file,
             "created_by": user_id
         }).execute()
         _invalida_cache_documenti()
+        log_attivita(user_id, "caricato", "documento", cliente_id, {
+            "file": nome_file
+        })
         return None
     except Exception as e:
         return str(e)
@@ -501,12 +430,14 @@ def scarica_documento(storage_path):
     except:
         return None
 
-def elimina_documento(doc_id, storage_path):
+def elimina_documento(doc_id, storage_path, user_id=None):
     sb = get_sb()
     try:
         sb.storage.from_("documenti-clienti").remove([storage_path])
         sb.table("documenti").delete().eq("id", doc_id).execute()
         _invalida_cache_documenti()
+        if user_id:
+            log_attivita(user_id, "eliminato", "documento", doc_id)
         return None
     except Exception as e:
         return str(e)
@@ -578,6 +509,9 @@ def invia_messaggio(mittente_id, destinatario_id, oggetto, corpo):
             "letto": False
         }).execute()
         _invalida_cache_messaggi()
+        log_attivita(mittente_id, "inviato", "messaggio", None, {
+            "oggetto": oggetto
+        })
         return None
     except Exception as e:
         return str(e)
@@ -641,7 +575,8 @@ def _invalida_cache_calendario():
     eventi_del_mese_multi.clear()
     eventi_oggi_multi.clear()
 
-def salva_autorizzazione_calendario(utente_id, calendario_di, puo_vedere, puo_modificare):
+def salva_autorizzazione_calendario(utente_id, calendario_di,
+                                    puo_vedere, puo_modificare):
     sb = get_sb()
     try:
         sb.table("calendario_autorizzazioni").upsert({
@@ -668,7 +603,6 @@ def elimina_autorizzazione_calendario(utente_id, calendario_di):
 
 @st.cache_data(ttl=30)
 def eventi_del_mese_multi(anno, mese, utenti_ids_tuple):
-    """Accetta una tupla (hashable) per compatibilità con cache."""
     sb = get_sb()
     utenti_ids = list(utenti_ids_tuple)
     try:
@@ -686,7 +620,6 @@ def eventi_del_mese_multi(anno, mese, utenti_ids_tuple):
 
 @st.cache_data(ttl=30)
 def eventi_oggi_multi(utenti_ids_tuple):
-    """Accetta una tupla (hashable) per compatibilità con cache."""
     sb = get_sb()
     utenti_ids = list(utenti_ids_tuple)
     try:
@@ -708,24 +641,32 @@ def crea_evento(dati, user_id):
         dati["creato_da"] = user_id
         res = sb.table("calendario").insert(dati).execute()
         _invalida_cache_calendario()
+        if res.data:
+            log_attivita(user_id, "creato", "calendario", res.data[0]["id"], {
+                "titolo": dati.get("titolo", "")
+            })
         return res.data[0] if res.data else None
     except:
         return None
 
-def aggiorna_evento(evento_id, dati):
+def aggiorna_evento(evento_id, dati, user_id=None):
     sb = get_sb()
     try:
         dati["updated_at"] = datetime.utcnow().isoformat()
         sb.table("calendario").update(dati).eq("id", evento_id).execute()
         _invalida_cache_calendario()
+        if user_id:
+            log_attivita(user_id, "modificato", "calendario", evento_id)
     except:
         pass
 
-def elimina_evento(evento_id):
+def elimina_evento(evento_id, user_id=None):
     sb = get_sb()
     try:
         sb.table("calendario").delete().eq("id", evento_id).execute()
         _invalida_cache_calendario()
+        if user_id:
+            log_attivita(user_id, "eliminato", "calendario", evento_id)
     except:
         pass
 
@@ -780,16 +721,30 @@ def elimina_nota(nota_id):
 
 # ── TEMPLATE OFFERTE ──────────────────────────────────
 
-@st.cache_data(ttl=60)
 def lista_template(user_id):
-    sb = get_sb()
+    from supabase import create_client
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_SERVICE_KEY"]
+    sb = create_client(url, key)
     try:
-        res = sb.table("template_offerte").select(
-            "*, creatore:utenti!template_offerte_created_by_fkey(nome, cognome)"
-        ).or_(
-            f"created_by.eq.{user_id},condiviso.eq.true"
+        res = sb.table("template_offerte").select("*").eq(
+            "created_by", user_id
         ).order("created_at", desc=True).execute()
-        return res.data or []
+        miei = res.data or []
+
+        res_cond = sb.table("template_condivisioni").select(
+            "template_id"
+        ).eq("utente_id", user_id).execute()
+        ids_condivisi = [r["template_id"] for r in (res_cond.data or [])]
+
+        condivisi = []
+        if ids_condivisi:
+            res_c = sb.table("template_offerte").select("*").in_(
+                "id", ids_condivisi
+            ).execute()
+            condivisi = res_c.data or []
+
+        return miei + condivisi
     except:
         return []
 
@@ -797,7 +752,9 @@ def lista_template(user_id):
 def get_template(template_id):
     sb = get_sb()
     try:
-        res = sb.table("template_offerte").select("*").eq("id", template_id).execute()
+        res = sb.table("template_offerte").select("*").eq(
+            "id", template_id
+        ).execute()
         if res.data and len(res.data) > 0:
             return res.data[0]
         return None
@@ -805,27 +762,30 @@ def get_template(template_id):
         return None
 
 def _invalida_cache_template():
-    lista_template.clear()
     get_template.clear()
 
 def crea_template(dati, user_id):
     sb = get_sb()
     try:
         dati["created_by"] = user_id
-        # Rimuovi condiviso se presente (campo non esiste più)
         dati.pop("condiviso", None)
         res = sb.table("template_offerte").insert(dati).execute()
         _invalida_cache_template()
+        if res.data:
+            log_attivita(user_id, "creato", "template", res.data[0]["id"], {
+                "titolo": dati.get("titolo", "")
+            })
         return res.data[0] if res.data else None
-    except Exception as e:
-        st.write(f"DEBUG crea_template errore: {e}")
+    except:
         return None
 
 def aggiorna_template(template_id, dati):
     sb = get_sb()
     try:
         dati["updated_at"] = datetime.utcnow().isoformat()
-        sb.table("template_offerte").update(dati).eq("id", template_id).execute()
+        sb.table("template_offerte").update(dati).eq(
+            "id", template_id
+        ).execute()
         _invalida_cache_template()
     except:
         pass
@@ -837,6 +797,39 @@ def elimina_template(template_id):
         _invalida_cache_template()
     except:
         pass
+
+def get_condivisioni_template(template_id):
+    sb = get_sb()
+    try:
+        res = sb.table("template_condivisioni").select(
+            "*, utente:utenti(id, nome, cognome, email)"
+        ).eq("template_id", template_id).execute()
+        return res.data or []
+    except:
+        return []
+
+def condividi_template(template_id, utente_id):
+    sb = get_sb()
+    try:
+        sb.table("template_condivisioni").upsert({
+            "template_id": template_id,
+            "utente_id": utente_id,
+        }, on_conflict="template_id,utente_id").execute()
+        _invalida_cache_template()
+        return None
+    except Exception as e:
+        return str(e)
+
+def rimuovi_condivisione_template(template_id, utente_id):
+    sb = get_sb()
+    try:
+        sb.table("template_condivisioni").delete().eq(
+            "template_id", template_id
+        ).eq("utente_id", utente_id).execute()
+        _invalida_cache_template()
+        return None
+    except Exception as e:
+        return str(e)
 
 # ── EVENTI CATERING ───────────────────────────────────
 
@@ -862,7 +855,8 @@ def get_evento_catering(evento_id):
     sb = get_sb()
     try:
         res = sb.table("eventi_catering").select(
-            "*, cliente:clienti(nome, cognome, ragione_sociale, tipo, email, telefono, indirizzo, citta),"
+            "*, cliente:clienti(nome, cognome, ragione_sociale, tipo, "
+            "email, telefono, indirizzo, citta),"
             "offerta:offerte(numero, titolo, importo, valuta, righe, descrizione),"
             "creatore:utenti!eventi_catering_creato_da_fkey(nome, cognome),"
             "manager:utenti!eventi_catering_event_manager_id_fkey(nome, cognome)"
@@ -883,16 +877,24 @@ def crea_evento_catering(dati, user_id):
         dati["creato_da"] = user_id
         res = sb.table("eventi_catering").insert(dati).execute()
         _invalida_cache_eventi()
+        if res.data:
+            log_attivita(user_id, "creato", "evento", res.data[0]["id"], {
+                "titolo": dati.get("titolo", "")
+            })
         return res.data[0] if res.data else None
     except:
         return None
 
-def aggiorna_evento_catering(evento_id, dati):
+def aggiorna_evento_catering(evento_id, dati, user_id=None):
     sb = get_sb()
     try:
         dati["updated_at"] = datetime.utcnow().isoformat()
         sb.table("eventi_catering").update(dati).eq("id", evento_id).execute()
         _invalida_cache_eventi()
+        if user_id:
+            log_attivita(user_id, "modificato", "evento", evento_id, {
+                "stato": dati.get("stato", "")
+            })
     except:
         pass
 
@@ -977,6 +979,9 @@ def carica_allegato_evento(evento_id, file_bytes, nome_file,
             "created_by": user_id
         }).execute()
         _invalida_cache_allegati_evento()
+        log_attivita(user_id, "caricato", "allegato_evento", evento_id, {
+            "file": nome_file
+        })
         return None
     except Exception as e:
         return str(e)
@@ -1022,5 +1027,54 @@ def eventi_assegnati_a_utente(utente_id):
     except:
         return []
 
-# ── AUTORIZZAZIONI CALENDARIO ─────────────────────────
-# (già incluse sopra nel blocco CALENDARIO)
+# ── INBOX EMAIL CONDIVISA ─────────────────────────────
+
+def lista_inbox_nuove():
+    sb = get_sb()
+    try:
+        res = sb.table("inbox_email").select(
+            "*, gestore:utenti!inbox_email_presa_in_carico_da_fkey(nome, cognome)"
+        ).eq("presa_in_carico", False).order(
+            "data_ricezione", desc=True
+        ).execute()
+        return res.data or []
+    except:
+        return []
+
+def lista_inbox_storico():
+    sb = get_sb()
+    try:
+        res = sb.table("inbox_email").select(
+            "*, gestore:utenti!inbox_email_presa_in_carico_da_fkey(nome, cognome)"
+        ).eq("presa_in_carico", True).order(
+            "data_ricezione", desc=True
+        ).execute()
+        return res.data or []
+    except:
+        return []
+
+def prendi_in_carico_email(email_id, utente_id):
+    sb = get_sb()
+    try:
+        sb.table("inbox_email").update({
+            "presa_in_carico": True,
+            "presa_in_carico_da": utente_id,
+            "presa_in_carico_at": datetime.utcnow().isoformat(),
+            "letta": True
+        }).eq("id", email_id).execute()
+        log_attivita(utente_id, "preso_in_carico", "email", email_id)
+        return None
+    except Exception as e:
+        return str(e)
+
+def inserisci_email_inbox(mittente, oggetto, corpo):
+    sb = get_sb()
+    try:
+        sb.table("inbox_email").insert({
+            "mittente": mittente,
+            "oggetto": oggetto,
+            "corpo": corpo,
+        }).execute()
+        return None
+    except Exception as e:
+        return str(e)
