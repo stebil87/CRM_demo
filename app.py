@@ -393,7 +393,10 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-    label_msg = f"Messaggi  ({n_non_letti})" if n_non_letti > 0 else "Messaggi"
+    if n_non_letti > 0:
+        label_msg = f"Messaggi  ·  {n_non_letti} nuovi"
+    else:
+        label_msg = "Messaggi"
 
     nav_items = [
         ("dashboard",   "Dashboard"),
