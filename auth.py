@@ -1,5 +1,5 @@
 import streamlit as st
-from db import get_supabase, get_profilo_utente
+from db import get_profilo_utente, get_supabase
 
 def login_utente(email, password):
     sb = get_supabase()
@@ -48,6 +48,7 @@ def pagina_login():
                 return
             st.session_state.utente = profilo
             st.session_state.supabase_user = user
+            st.session_state.supabase_session = res.session if hasattr(res, 'session') else None
             st.rerun()
 
 def do_logout():
@@ -58,7 +59,11 @@ def do_logout():
     st.rerun()
 
 def can_edit(utente):
-    return utente and utente["ruolo"] in ("admin", "modifica")
+    """Admin, modifica e event_manager possono modificare."""
+    return utente and utente["ruolo"] in ("admin", "modifica", "event_manager")
 
 def is_admin(utente):
     return utente and utente["ruolo"] == "admin"
+
+def is_event_manager(utente):
+    return utente and utente["ruolo"] in ("admin", "event_manager")
