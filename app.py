@@ -11,6 +11,16 @@ from calendario import pagina_calendario
 from template_offerte import pagina_template
 from db import lista_messaggi_non_letti
 
+import db
+import inspect
+
+# DEBUG: stampa il percorso e il contenuto del modulo db
+print("=== DB MODULE DEBUG ===")
+print("File path:", db.__file__)
+print("Functions in db:", [name for name in dir(db) if not name.startswith('_')])
+print("Has lista_template?", hasattr(db, 'lista_template'))
+print("======================")
+
 st.set_page_config(
     page_title="1908 Group — CRM",
     page_icon="1908_Group_Black.png",
