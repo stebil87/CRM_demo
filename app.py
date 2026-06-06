@@ -9,19 +9,9 @@ from admin import pagina_admin
 from messaggi import pagina_messaggi
 from calendario import pagina_calendario
 from template_offerte import pagina_template
+from eventi_catering import pagina_eventi
 from db import lista_messaggi_non_letti
 
-import db
-import inspect
-
-# DEBUG: stampa il percorso e il contenuto del modulo db
-print("=== DB MODULE DEBUG ===")
-print("File path:", db.__file__)
-print("Functions in db:", [name for name in dir(db) if not name.startswith('_')])
-print("Has lista_template?", hasattr(db, 'lista_template'))
-print("======================")
-
-# Configurazione pagina - sidebar sempre espansa all'avvio
 st.set_page_config(
     page_title="1908 Group — CRM",
     page_icon="1908_Group_Black.png",
@@ -29,7 +19,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS completo
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -44,12 +33,9 @@ html, body, [class*="css"] {
 footer { display: none !important; }
 #MainMenu { visibility: hidden; }
 
-/* Forza la sidebar ad essere visibile se bloccata */
 [data-testid="stSidebar"] {
     min-width: 260px !important;
     width: 260px !important;
-    transform: translateX(0px) !important;
-    display: block !important;
 }
 
 .login-label {
@@ -109,16 +95,8 @@ h1 {
     letter-spacing: -0.3px;
     margin-bottom: 4px !important;
 }
-h2 {
-    font-size: 16px !important;
-    font-weight: 600 !important;
-    color: #1a1a2e !important;
-}
-h3 {
-    font-size: 14px !important;
-    font-weight: 600 !important;
-    color: #1a1a2e !important;
-}
+h2 { font-size: 16px !important; font-weight: 600 !important; color: #1a1a2e !important; }
+h3 { font-size: 14px !important; font-weight: 600 !important; color: #1a1a2e !important; }
 
 .stButton > button {
     background: #1a1a2e;
@@ -142,9 +120,6 @@ h3 {
     color: #1a1a2e !important;
     border: 1px solid #dddde8;
 }
-.stButton > button[kind="secondary"]:hover {
-    background: #eaeaf4 !important;
-}
 
 .stTextInput > div > div > input,
 .stTextArea > div > div > textarea,
@@ -154,7 +129,6 @@ h3 {
     font-size: 13px;
     color: #1a1a2e;
     background: #fafafa;
-    transition: border 0.2s;
 }
 .stTextInput > div > div > input:focus,
 .stTextArea > div > div > textarea:focus {
@@ -192,9 +166,6 @@ h3 {
     color: #1a1a2e;
     padding: 12px 16px;
 }
-.streamlit-expanderHeader:hover {
-    background: #f0f0f8;
-}
 .streamlit-expanderContent {
     border: 1px solid #eaeaf0;
     border-top: none;
@@ -222,16 +193,8 @@ h3 {
     font-weight: 600;
 }
 
-hr {
-    border: none;
-    border-top: 1px solid #eaeaf0;
-    margin: 16px 0;
-}
-
-.stAlert {
-    border-radius: 8px;
-    font-size: 13px;
-}
+hr { border: none; border-top: 1px solid #eaeaf0; margin: 16px 0; }
+.stAlert { border-radius: 8px; font-size: 13px; }
 
 .stForm [data-testid="stFormSubmitButton"] > button {
     background: #1a1a2e;
@@ -240,12 +203,6 @@ hr {
     padding: 10px 28px;
     border-radius: 6px;
     font-size: 13px;
-}
-
-.stDataFrame {
-    border: 1px solid #eaeaf0;
-    border-radius: 8px;
-    overflow: hidden;
 }
 
 .sidebar-user {
@@ -265,13 +222,13 @@ hr {
 </style>
 """, unsafe_allow_html=True)
 
-# Inizializzazione session state
 for k, v in {
     "pagina": "dashboard",
     "cliente_id": None,
     "cliente_nome": None,
     "reply_to": None,
     "template_selezionato": None,
+    "offerta_per_evento": None,
 }.items():
     if k not in st.session_state:
         st.session_state[k] = v
@@ -303,13 +260,6 @@ if not utente:
 
 non_letti = lista_messaggi_non_letti(utente["id"])
 n_non_letti = len(non_letti)
-
-# Pulsante di ripristino sidebar (in alto a destra)
-col_reset1, col_reset2, col_reset3 = st.columns([0.85, 0.05, 0.1])
-with col_reset3:
-    if st.button("🔓 Apri menu", key="unlock_sidebar", help="Riapre il menu laterale se si è bloccato"):
-        st.session_state.sidebar_state = "expanded"
-        st.rerun()
 
 with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
@@ -346,6 +296,7 @@ with st.sidebar:
         ("clienti",     "Clienti"),
         ("offerte_all", "Offerte"),
         ("template",    "Template offerte"),
+        ("eventi",      "Eventi"),
         ("calendario",  "Calendario"),
         ("messaggi",    label_msg),
     ]
@@ -380,6 +331,7 @@ breadcrumb_map = {
     "offerte_all": "Offerte",
     "documenti":   f"Clienti  /  {st.session_state.cliente_nome or ''}  /  Documenti",
     "template":    "Template offerte",
+    "eventi":      "Eventi",
     "calendario":  "Calendario",
     "messaggi":    "Messaggi",
     "admin":       "Amministrazione",
@@ -403,6 +355,8 @@ elif p == "documenti":
     pagina_documenti(utente, st.session_state.cliente_id, st.session_state.cliente_nome)
 elif p == "template":
     pagina_template(utente)
+elif p == "eventi":
+    pagina_eventi(utente)
 elif p == "calendario":
     pagina_calendario(utente)
 elif p == "messaggi":
