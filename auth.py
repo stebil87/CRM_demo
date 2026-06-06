@@ -30,6 +30,7 @@ def pagina_login():
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
             submitted = st.form_submit_button("Entra", use_container_width=True)
+
         if submitted:
             if not email or not password:
                 st.error("Inserisci email e password.")
@@ -48,7 +49,6 @@ def pagina_login():
                 return
             st.session_state.utente = profilo
             st.session_state.supabase_user = user
-            st.session_state.supabase_session = res.session if hasattr(res, 'session') else None
             st.rerun()
 
 def do_logout():
