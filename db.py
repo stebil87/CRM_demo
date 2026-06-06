@@ -11,15 +11,10 @@ def get_supabase():
     key = st.secrets["SUPABASE_KEY"]
     return create_client(url, key)
 
-@st.cache_resource
-def get_sb_service():
-    """Client service role — usato per tutte le query dati."""
+def get_sb():
     url = st.secrets["SUPABASE_URL"]
     key = st.secrets["SUPABASE_SERVICE_KEY"]
     return create_client(url, key)
-
-def get_sb():
-    return get_sb_service()
 
 # ── AUTH ──────────────────────────────────────────────
 
