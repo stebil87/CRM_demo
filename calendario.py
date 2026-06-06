@@ -12,7 +12,7 @@ from auth import is_admin
 
 TIPI = ["appuntamento", "riunione", "chiamata", "scadenza", "altro"]
 COLORI = {
-    "appuntamento": "#1a1a2e",eventi = eventi_del_mese_multi(anno, mese, tuple(ids_visibili))
+    "appuntamento": "#1a1a2e",
     "riunione":     "#0f3460",
     "chiamata":     "#533483",
     "scadenza":     "#e94560",
@@ -23,7 +23,6 @@ MESI_IT = [
     "Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"
 ]
 GIORNI_IT = ["Lun","Mar","Mer","Gio","Ven","Sab","Dom"]
-
 
 def pagina_calendario(utente):
     st.title("Calendario")
