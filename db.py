@@ -2,6 +2,8 @@ from supabase import create_client
 import streamlit as st
 from datetime import datetime, date, timedelta
 import calendar as cal_lib
+from datetime import datetime, date, timedelta, timezone
+import pytz
 
 # ── CLIENT ────────────────────────────────────────────
 
@@ -33,6 +35,11 @@ def get_sb():
     url = st.secrets["SUPABASE_URL"]
     key = st.secrets["SUPABASE_SERVICE_KEY"]
     return create_client(url, key)
+
+TIMEZONE = pytz.timezone("Europe/Zurich")
+
+def ora_locale():
+    return datetime.now(TIMEZONE)
 
 def compleanni_in_arrivo(giorni=7):
     sb = get_sb()
