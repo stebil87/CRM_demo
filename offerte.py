@@ -72,14 +72,45 @@ def _scheda_offerta(o, utente):
             righe = json.loads(righe)
         except:
             righe = []
-    if righe:
-        st.markdown("**Voci:**")
-        for r in righe:
+
+    # Separa righe base da upgrade
+    righe_base = [r for r in righe if not r.get("upgrade")]
+    righe_upgrade = [r for r in righe if r.get("upgrade")]
+
+    totale_base = sum(float(r.get("totale", 0)) for r in righe_base)
+    totale_upgrade = sum(float(r.get("totale", 0)) for r in righe_upgrade)
+    valuta = o.get("valuta", "CHF")
+
+    if righe_base:
+        st.markdown("**Pacchetto base:**")
+        for r in righe_base:
             st.markdown(
                 f"- {r.get('descrizione','—')}   "
                 f"{r.get('qta',1)} x {float(r.get('prezzo',0)):,.2f} = "
                 f"**{float(r.get('totale',0)):,.2f}**"
             )
+        st.markdown(
+            f"<div style='background:#f4f4f8;border-radius:6px;padding:8px 12px;"
+            f"font-size:13px;font-weight:600;color:#1a1a2e;margin:4px 0;'>"
+            f"Totale base: {valuta} {totale_base:,.2f}</div>",
+            unsafe_allow_html=True
+        )
+
+    if righe_upgrade:
+        st.markdown("**Opzioni upgrade:**")
+        for r in righe_upgrade:
+            st.markdown(
+                f"- {r.get('descrizione','—')}   "
+                f"{r.get('qta',1)} x {float(r.get('prezzo',0)):,.2f} = "
+                f"**{float(r.get('totale',0)):,.2f}**"
+            )
+        st.markdown(
+            f"<div style='background:#fff3cd;border:1px solid #ffc107;border-radius:6px;"
+            f"padding:8px 12px;font-size:13px;font-weight:600;color:#856404;margin:4px 0;'>"
+            f"Valore upgrade opzionale: {valuta} {totale_upgrade:,.2f} &nbsp;·&nbsp; "
+            f"Totale con upgrade: {valuta} {totale_base + totale_upgrade:,.2f}</div>",
+            unsafe_allow_html=True
+        )
 
     if o.get("note"):
         st.markdown(f"**Note:** {o['note']}")
@@ -99,7 +130,7 @@ def _scheda_offerta(o, utente):
             key=f"pdf_{o['id']}"
         )
 
-    # ── CONFERMA D'ORDINE ──
+    # Conferma d'ordine
     if o.get("stato") == "accettata" and can_edit(utente):
         st.markdown("---")
         st.markdown("**Conferma d'ordine**")
@@ -185,56 +216,147 @@ def _form_righe(righe_default=None, key_prefix="nr"):
         st.session_state.righe_temp = righe_default or []
         st.session_state[f"{key_prefix}_init"] = key_prefix
 
-    st.markdown("**Voci dell'offerta**")
-    totale_generale = 0.0
+    # Separa visivamente base da upgrade
+    righe_base = [r for r in st.session_state.righe_temp if not r.get("upgrade")]
+    righe_upgrade = [r for r in st.session_state.righe_temp if r.get("upgrade")]
+
+    totale_base = 0.0
+    totale_upgrade = 0.0
     righe_aggiornate = []
 
-    for i, r in enumerate(st.session_state.righe_temp):
-        col1, col2, col3, col4 = st.columns([4, 1, 2, 1])
+    # ── RIGHE BASE ──
+    st.markdown(
+        "<div style='background:#1a1a2e;color:white;border-radius:6px 6px 0 0;"
+        "padding:8px 14px;font-size:12px;font-weight:700;letter-spacing:0.5px;'>"
+        "PACCHETTO BASE</div>",
+        unsafe_allow_html=True
+    )
+
+    indici_base = [i for i, r in enumerate(st.session_state.righe_temp) if not r.get("upgrade")]
+    for idx in indici_base:
+        r = st.session_state.righe_temp[idx]
+        col1, col2, col3, col4, col5 = st.columns([4, 1, 2, 1, 1])
         with col1:
             desc = st.text_input(
                 "Descrizione", value=r.get("descrizione", ""),
-                key=f"{key_prefix}_d{i}"
+                key=f"{key_prefix}_d{idx}"
             )
         with col2:
             qta = st.number_input(
                 "Qta", min_value=0.0, value=float(r.get("qta", 1)),
-                step=1.0, key=f"{key_prefix}_q{i}"
+                step=1.0, key=f"{key_prefix}_q{idx}"
             )
         with col3:
             prezzo = st.number_input(
-                "Prezzo unit.", min_value=0.0,
-                value=float(r.get("prezzo", 0)),
-                step=10.0, key=f"{key_prefix}_p{i}"
+                "Prezzo", min_value=0.0, value=float(r.get("prezzo", 0)),
+                step=10.0, key=f"{key_prefix}_p{idx}"
             )
         with col4:
             tot = qta * prezzo
-            st.metric("Totale", f"{tot:,.2f}")
-            if st.button("Rimuovi", key=f"{key_prefix}_del{i}"):
-                st.session_state.righe_temp.pop(i)
+            st.metric("Tot.", f"{tot:,.2f}")
+        with col5:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("X", key=f"{key_prefix}_del{idx}"):
+                st.session_state.righe_temp.pop(idx)
                 st.rerun()
         righe_aggiornate.append({
             "descrizione": desc, "qta": qta,
-            "prezzo": prezzo, "totale": tot
+            "prezzo": prezzo, "totale": tot,
+            "upgrade": False
         })
-        totale_generale += tot
+        totale_base += tot
 
-    st.session_state.righe_temp = righe_aggiornate
-
-    if st.button("Aggiungi riga", key=f"{key_prefix}_add"):
+    if st.button("+ Aggiungi voce base", key=f"{key_prefix}_add_base"):
         st.session_state.righe_temp.append({
-            "descrizione": "", "qta": 1, "prezzo": 0.0, "totale": 0.0
+            "descrizione": "", "qta": 1,
+            "prezzo": 0.0, "totale": 0.0,
+            "upgrade": False
         })
         st.rerun()
 
-    st.markdown(f"**Totale: {totale_generale:,.2f}**")
-    return st.session_state.righe_temp, totale_generale
+    st.markdown(
+        f"<div style='background:#f4f4f8;border-radius:0 0 6px 6px;"
+        f"padding:8px 14px;font-size:12px;font-weight:700;color:#1a1a2e;"
+        f"margin-bottom:12px;'>Totale base: {totale_base:,.2f}</div>",
+        unsafe_allow_html=True
+    )
+
+    # ── RIGHE UPGRADE ──
+    st.markdown(
+        "<div style='background:#856404;color:white;border-radius:6px 6px 0 0;"
+        "padding:8px 14px;font-size:12px;font-weight:700;letter-spacing:0.5px;'>"
+        "OPZIONI UPGRADE (opzionali)</div>",
+        unsafe_allow_html=True
+    )
+
+    indici_upgrade = [i for i, r in enumerate(st.session_state.righe_temp) if r.get("upgrade")]
+    for idx in indici_upgrade:
+        r = st.session_state.righe_temp[idx]
+        col1, col2, col3, col4, col5 = st.columns([4, 1, 2, 1, 1])
+        with col1:
+            desc = st.text_input(
+                "Descrizione upgrade", value=r.get("descrizione", ""),
+                key=f"{key_prefix}_d{idx}"
+            )
+        with col2:
+            qta = st.number_input(
+                "Qta", min_value=0.0, value=float(r.get("qta", 1)),
+                step=1.0, key=f"{key_prefix}_q{idx}"
+            )
+        with col3:
+            prezzo = st.number_input(
+                "Prezzo", min_value=0.0, value=float(r.get("prezzo", 0)),
+                step=10.0, key=f"{key_prefix}_p{idx}"
+            )
+        with col4:
+            tot = qta * prezzo
+            st.metric("Tot.", f"{tot:,.2f}")
+        with col5:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("X", key=f"{key_prefix}_del{idx}"):
+                st.session_state.righe_temp.pop(idx)
+                st.rerun()
+        righe_aggiornate.append({
+            "descrizione": desc, "qta": qta,
+            "prezzo": prezzo, "totale": tot,
+            "upgrade": True
+        })
+        totale_upgrade += tot
+
+    if st.button("+ Aggiungi opzione upgrade", key=f"{key_prefix}_add_upgrade"):
+        st.session_state.righe_temp.append({
+            "descrizione": "", "qta": 1,
+            "prezzo": 0.0, "totale": 0.0,
+            "upgrade": True
+        })
+        st.rerun()
+
+    if totale_upgrade > 0:
+        st.markdown(
+            f"<div style='background:#fff3cd;border:1px solid #ffc107;"
+            f"border-radius:0 0 6px 6px;padding:8px 14px;font-size:12px;"
+            f"font-weight:700;color:#856404;margin-bottom:4px;'>"
+            f"Upgrade opzionale: {totale_upgrade:,.2f} &nbsp;·&nbsp; "
+            f"Totale con upgrade: {totale_base + totale_upgrade:,.2f}</div>",
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            "<div style='background:#f4f4f8;border-radius:0 0 6px 6px;"
+            "padding:8px 14px;font-size:12px;color:#888;margin-bottom:4px;'>"
+            "Nessun upgrade aggiunto</div>",
+            unsafe_allow_html=True
+        )
+
+    # Ricostruisce la lista nell'ordine corretto (base prima, upgrade dopo)
+    st.session_state.righe_temp = righe_aggiornate
+
+    return st.session_state.righe_temp, totale_base
 
 
 def _form_nuova_offerta(utente, cliente_id):
     st.subheader("Nuova offerta")
 
-    # Selezione template
     templates = lista_template(utente["id"])
     if templates:
         st.markdown("**Parti da un template**")
@@ -265,6 +387,10 @@ def _form_nuova_offerta(utente, cliente_id):
                         righe = json.loads(righe)
                     except:
                         righe = []
+                # Assicura che tutte le righe template abbiano il flag upgrade
+                for r in righe:
+                    if "upgrade" not in r:
+                        r["upgrade"] = False
                 st.session_state.righe_temp = righe
                 st.session_state.template_selezionato = None
                 st.success(f"Template '{tmpl['titolo']}' caricato.")
@@ -272,7 +398,6 @@ def _form_nuova_offerta(utente, cliente_id):
 
         st.markdown("---")
 
-    # Precompila da offerta_per_evento se presente
     offerta_ref = st.session_state.get("offerta_per_evento")
 
     with st.form("form_nuova_offerta"):
@@ -280,7 +405,7 @@ def _form_nuova_offerta(utente, cliente_id):
         with col1:
             titolo = st.text_input(
                 "Titolo offerta *",
-                value=offerta_ref.get("titolo","") if offerta_ref else ""
+                value=offerta_ref.get("titolo", "") if offerta_ref else ""
             )
             valuta = st.selectbox("Valuta", VALUTE)
             data_emissione = st.date_input("Data emissione", value=date.today())
@@ -289,7 +414,7 @@ def _form_nuova_offerta(utente, cliente_id):
             data_scadenza = st.date_input("Data scadenza", value=None)
         descrizione = st.text_area(
             "Descrizione",
-            value=offerta_ref.get("descrizione","") if offerta_ref else ""
+            value=offerta_ref.get("descrizione", "") if offerta_ref else ""
         )
         note = st.text_area("Note interne")
         submitted = st.form_submit_button("Crea e genera PDF")
@@ -299,7 +424,9 @@ def _form_nuova_offerta(utente, cliente_id):
             st.error("Il titolo e obbligatorio.")
         else:
             righe = st.session_state.get("righe_temp", [])
-            importo = sum(r.get("totale", 0) for r in righe)
+            # Importo = solo righe base per default
+            righe_base = [r for r in righe if not r.get("upgrade")]
+            importo = sum(r.get("totale", 0) for r in righe_base)
             nuova = crea_offerta({
                 "cliente_id": cliente_id,
                 "titolo": titolo,
@@ -340,6 +467,11 @@ def _form_modifica_offerta(o, utente):
         except:
             righe_esistenti = []
 
+    # Assicura flag upgrade su tutte le righe esistenti
+    for r in righe_esistenti:
+        if "upgrade" not in r:
+            r["upgrade"] = False
+
     with st.form(f"form_edit_offerta_{o['id']}"):
         col1, col2 = st.columns(2)
         with col1:
@@ -375,7 +507,8 @@ def _form_modifica_offerta(o, utente):
 
     if salva:
         righe = st.session_state.get("righe_temp", righe_esistenti)
-        importo = sum(r.get("totale", 0) for r in righe)
+        righe_base = [r for r in righe if not r.get("upgrade")]
+        importo = sum(r.get("totale", 0) for r in righe_base)
         aggiorna_offerta(o["id"], {
             "titolo": titolo,
             "descrizione": descrizione,
