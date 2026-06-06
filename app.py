@@ -298,6 +298,19 @@ if not utente:
 non_letti = lista_messaggi_non_letti(utente["id"])
 n_non_letti = len(non_letti)
 
+# ── NOTIFICHE TOAST GLOBALI ────────────────────────────────────────────────
+if not st.session_state.get("notifiche_disattivate", False):
+    gia_notificati = st.session_state.get("msg_notificati", set())
+    nuovi_toast = [m for m in non_letti if m["id"] not in gia_notificati]
+    if nuovi_toast:
+        for m in nuovi_toast:
+            mitt = m.get("mittente") or {}
+            nome_mitt = f"{mitt.get('nome','')} {mitt.get('cognome','')}".strip() or "Utente"
+            oggetto = m.get("oggetto") or "(nessun oggetto)"
+            st.toast(f"Nuovo messaggio da {nome_mitt}: {oggetto}", icon="✉")
+            gia_notificati.add(m["id"])
+        st.session_state.msg_notificati = gia_notificati
+
 # ── SIDEBAR ────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
