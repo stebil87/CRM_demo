@@ -122,6 +122,9 @@ def _scheda_evento(ev, utente, colore_stato):
     with tab_allegati:
         _gestione_allegati(ev, utente)
 
+    with tab_beo:
+    _tab_beo(ev, utente)
+
     with tab_modifica:
         if can_edit(utente):
             _form_modifica_evento(ev, utente)
