@@ -40,6 +40,33 @@ def crea_utente_profilo(user_id, nome, cognome, email, ruolo):
     except Exception as e:
         return str(e)
 
+def followup_oggi():
+    sb = get_sb()
+    try:
+        from datetime import date
+        oggi = date.today().isoformat()
+        res = sb.table("diario").select(
+            "*, clienti(nome, cognome, ragione_sociale, tipo)"
+        ).eq("followup_fatto", False).eq("followup_data", oggi).execute()
+        return res.data or []
+    except:
+        return []
+
+def followup_prossimi7():
+    sb = get_sb()
+    try:
+        from datetime import date, timedelta
+        domani = (date.today() + timedelta(days=1)).isoformat()
+        tra7 = (date.today() + timedelta(days=7)).isoformat()
+        res = sb.table("diario").select(
+            "*, clienti(nome, cognome, ragione_sociale, tipo)"
+        ).eq("followup_fatto", False).gte(
+            "followup_data", domani
+        ).lte("followup_data", tra7).execute()
+        return res.data or []
+    except:
+        return []
+
 def lista_utenti():
     sb = get_sb()
     try:
