@@ -1,8 +1,23 @@
 import streamlit as st
-from db import login_utente, logout_utente, get_profilo_utente
+from db import get_supabase, get_profilo_utente
+
+def login_utente(email, password):
+    sb = get_supabase()
+    try:
+        res = sb.auth.sign_in_with_password({"email": email, "password": password})
+        st.session_state.supabase_session = res.session
+        return res.user, None
+    except Exception as e:
+        return None, str(e)
+
+def logout_utente():
+    sb = get_supabase()
+    try:
+        sb.auth.sign_out()
+    except:
+        pass
 
 def check_auth():
-    """Controlla se l'utente è loggato. Restituisce il profilo o None."""
     if "utente" not in st.session_state:
         st.session_state.utente = None
     return st.session_state.utente
@@ -22,21 +37,15 @@ def pagina_login():
                 return
             with st.spinner("Accesso in corso..."):
                 user, err = login_utente(email, password)
-            
             if err:
-                st.error(f"Errore login: {err}")
+                st.error("Credenziali non valide.")
                 return
-            
-            st.write(f"DEBUG - User ID: {user.id}")
-            
             profilo = get_profilo_utente(user.id)
-            st.write(f"DEBUG - Profilo: {profilo}")
-            
             if not profilo:
                 st.error("Utente non trovato nel sistema. Contatta un amministratore.")
                 return
             if not profilo.get("attivo", True):
-                st.error("Account disattivato.")
+                st.error("Account disattivato. Contatta un amministratore.")
                 return
             st.session_state.utente = profilo
             st.session_state.supabase_user = user
@@ -46,6 +55,7 @@ def do_logout():
     logout_utente()
     st.session_state.utente = None
     st.session_state.supabase_user = None
+    st.session_state.supabase_session = None
     st.rerun()
 
 def can_edit(utente):
