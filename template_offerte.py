@@ -1,7 +1,14 @@
 import streamlit as st
 import json
-from db import lista_template, get_template, crea_template, aggiorna_template, elimina_template
+import db  # importa tutto il modulo
 from auth import can_edit
+
+# Ora prendi le funzioni dal modulo importato
+lista_template = db.lista_template
+get_template = db.get_template
+crea_template = db.crea_template
+aggiorna_template = db.aggiorna_template
+elimina_template = db.elimina_template
 
 def pagina_template(utente):
     st.title("Template offerte")
