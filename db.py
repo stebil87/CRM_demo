@@ -36,16 +36,13 @@ def get_profilo_utente(user_id):
 # ── CONDIVISIONI TEMPLATE ─────────────────────────────
 
 def lista_template(user_id):
-    """Template propri + quelli condivisi con me."""
     sb = get_sb()
     try:
-        # I miei template
-        res_miei = sb.table("template_offerte").select(
+        res = sb.table("template_offerte").select(
             "*, creatore:utenti!template_offerte_created_by_fkey(nome, cognome)"
         ).eq("created_by", user_id).order("created_at", desc=True).execute()
-        miei = res_miei.data or []
+        miei = res.data or []
 
-        # Template condivisi con me
         res_cond = sb.table("template_condivisioni").select(
             "template_id"
         ).eq("utente_id", user_id).execute()
@@ -60,7 +57,6 @@ def lista_template(user_id):
 
         return miei + condivisi
     except Exception as e:
-        st.write(f"DEBUG lista_template errore: {e}")
         return []
 
 def get_condivisioni_template(template_id):
