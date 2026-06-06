@@ -24,7 +24,11 @@ def pagina_template(utente):
 
 
 def _lista_template(utente):
-    templates = lista_template(utente["id"])
+    from db import lista_template as _lt
+    templates = _lt(utente["id"])
+
+    st.write(f"DEBUG user_id: {utente['id']}")
+    st.write(f"DEBUG templates: {templates}")
 
     if not templates:
         st.info("Nessun template disponibile. Creane uno dalla scheda accanto.")
