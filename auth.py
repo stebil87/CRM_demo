@@ -17,6 +17,38 @@ def logout_utente():
     except:
         pass
 
+def cambia_password(nuova_password):
+    """Cambia la password dell'utente corrente."""
+    sb = get_supabase()
+    try:
+        sb.auth.update_user({"password": nuova_password})
+        return None
+    except Exception as e:
+        return str(e)
+
+def valida_password(password):
+    """
+    Requisiti minimi:
+    - Almeno 8 caratteri
+    - Almeno una lettera maiuscola
+    - Almeno una lettera minuscola
+    - Almeno un numero
+    - Almeno un carattere speciale
+    """
+    import re
+    errori = []
+    if len(password) < 8:
+        errori.append("almeno 8 caratteri")
+    if not re.search(r"[A-Z]", password):
+        errori.append("almeno una lettera maiuscola")
+    if not re.search(r"[a-z]", password):
+        errori.append("almeno una lettera minuscola")
+    if not re.search(r"\d", password):
+        errori.append("almeno un numero")
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>_\-]", password):
+        errori.append("almeno un carattere speciale (!@#$%...)")
+    return errori
+
 def check_auth():
     if "utente" not in st.session_state:
         st.session_state.utente = None
