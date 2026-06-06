@@ -299,3 +299,56 @@ def stats_dashboard():
             "offerte_data": [],
             "diario_oggi": 0,
         }
+
+# ── MESSAGGI ──────────────────────────────────────────
+
+def lista_messaggi_ricevuti(user_id):
+    sb = get_sb()
+    try:
+        res = sb.table("messaggi").select(
+            "*, mittente:utenti!messaggi_mittente_id_fkey(id, nome, cognome, email)"
+        ).eq("destinatario_id", user_id).order("created_at", desc=True).execute()
+        return res.data or []
+    except Exception as e:
+        return []
+
+def lista_messaggi_inviati(user_id):
+    sb = get_sb()
+    try:
+        res = sb.table("messaggi").select(
+            "*, destinatario:utenti!messaggi_destinatario_id_fkey(id, nome, cognome, email)"
+        ).eq("mittente_id", user_id).order("created_at", desc=True).execute()
+        return res.data or []
+    except Exception as e:
+        return []
+
+def lista_messaggi_non_letti(user_id):
+    sb = get_sb()
+    try:
+        res = sb.table("messaggi").select("id").eq(
+            "destinatario_id", user_id
+        ).eq("letto", False).execute()
+        return res.data or []
+    except:
+        return []
+
+def invia_messaggio(mittente_id, destinatario_id, oggetto, corpo):
+    sb = get_sb()
+    try:
+        sb.table("messaggi").insert({
+            "mittente_id": mittente_id,
+            "destinatario_id": destinatario_id,
+            "oggetto": oggetto,
+            "corpo": corpo,
+            "letto": False
+        }).execute()
+        return None
+    except Exception as e:
+        return str(e)
+
+def segna_come_letto(messaggio_id):
+    sb = get_sb()
+    try:
+        sb.table("messaggi").update({"letto": True}).eq("id", messaggio_id).execute()
+    except:
+        pass
