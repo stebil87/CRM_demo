@@ -2,7 +2,7 @@ import streamlit as st
 from db import lista_utenti, aggiorna_ruolo_utente, disattiva_utente, get_supabase
 from auth import is_admin
 
-RUOLI = ["visualizza", "modifica", "admin"]
+RUOLI = ["visualizza", "modifica", "admin", "event_manager"]
 
 def pagina_admin(utente):
     if not is_admin(utente):
