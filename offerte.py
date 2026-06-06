@@ -1,12 +1,16 @@
 import streamlit as st
 from datetime import date
 import json
-from db import lista_offerte, get_offerta, crea_offerta, aggiorna_offerta, nuova_versione_offerta, get_cliente
+from db import (
+    lista_offerte, get_offerta, crea_offerta, aggiorna_offerta,
+    nuova_versione_offerta, get_cliente, lista_template, get_template
+)
 from auth import can_edit
 from pdf_offerta import genera_pdf_offerta
 
 STATI_OFFERTA = ["bozza", "inviata", "accettata", "rifiutata", "scaduta"]
 VALUTE = ["CHF", "EUR", "USD"]
+
 
 def pagina_offerte(utente, cliente_id=None, cliente_nome=None):
     col1, col2 = st.columns([1, 8])
@@ -36,14 +40,17 @@ def pagina_offerte(utente, cliente_id=None, cliente_nome=None):
         else:
             for o in offerte:
                 cliente_info = o.get("clienti") or {}
-                nome_cl = cliente_info.get("ragione_sociale") or f"{cliente_info.get('nome','')} {cliente_info.get('cognome','')}".strip()
+                nome_cl = cliente_info.get("ragione_sociale") or \
+                    f"{cliente_info.get('nome','')} {cliente_info.get('cognome','')}".strip()
                 label = f"{o['numero']}   |   {o['titolo']}"
                 if not cliente_id:
                     label += f"   |   {nome_cl}"
-                label += f"   |   {o.get('valuta','CHF')} {float(o.get('importo') or 0):,.2f}   |   {o.get('stato','').upper()}   |   v{o.get('versione',1)}"
+                label += f"   |   {o.get('valuta','CHF')} {float(o.get('importo') or 0):,.2f}"
+                label += f"   |   {o.get('stato','').upper()}   |   v{o.get('versione',1)}"
 
                 with st.expander(label):
                     _scheda_offerta(o, utente)
+
 
 def _scheda_offerta(o, utente):
     col1, col2 = st.columns(2)
@@ -69,10 +76,17 @@ def _scheda_offerta(o, utente):
     if righe:
         st.markdown("**Voci:**")
         for r in righe:
-            st.markdown(f"- {r.get('descrizione','—')}   {r.get('qta',1)} x {float(r.get('prezzo',0)):,.2f} = **{float(r.get('totale',0)):,.2f}**")
+            st.markdown(
+                f"- {r.get('descrizione','—')}   "
+                f"{r.get('qta',1)} x {float(r.get('prezzo',0)):,.2f} = "
+                f"**{float(r.get('totale',0)):,.2f}**"
+            )
 
     if o.get("note"):
         st.markdown(f"**Note:** {o['note']}")
+
+    if o.get("offerta_padre"):
+        st.caption(f"Revisione di offerta precedente (ID: {o['offerta_padre'][:8]}...)")
 
     # Download PDF
     cliente_dati = get_cliente(o["cliente_id"]) if o.get("cliente_id") else {}
@@ -108,8 +122,10 @@ def _scheda_offerta(o, utente):
         st.markdown("---")
         _form_modifica_offerta(o, utente)
 
+
 def _form_righe(righe_default=None, key_prefix="nr"):
-    if "righe_temp" not in st.session_state or st.session_state.get(f"{key_prefix}_init") != key_prefix:
+    if "righe_temp" not in st.session_state or \
+            st.session_state.get(f"{key_prefix}_init") != key_prefix:
         st.session_state.righe_temp = righe_default or []
         st.session_state[f"{key_prefix}_init"] = key_prefix
 
@@ -143,8 +159,48 @@ def _form_righe(righe_default=None, key_prefix="nr"):
     st.markdown(f"**Totale: {totale_generale:,.2f}**")
     return st.session_state.righe_temp, totale_generale
 
+
 def _form_nuova_offerta(utente, cliente_id):
     st.subheader("Nuova offerta")
+
+    # Selezione template
+    templates = lista_template(utente["id"])
+    if templates:
+        st.markdown("**Parti da un template**")
+        opzioni_tmpl = {"— Nessun template —": None}
+        opzioni_tmpl.update({t["titolo"]: t["id"] for t in templates})
+
+        tmpl_presel = st.session_state.get("template_selezionato")
+        default_idx = 0
+        if tmpl_presel:
+            nomi = list(opzioni_tmpl.keys())
+            if tmpl_presel.get("titolo") in nomi:
+                default_idx = nomi.index(tmpl_presel["titolo"])
+
+        sel = st.selectbox(
+            "Carica template",
+            list(opzioni_tmpl.keys()),
+            index=default_idx,
+            key="sel_template"
+        )
+        tmpl_id = opzioni_tmpl[sel]
+
+        if tmpl_id and st.button("Carica voci dal template"):
+            tmpl = get_template(tmpl_id)
+            if tmpl:
+                righe = tmpl.get("righe") or []
+                if isinstance(righe, str):
+                    try:
+                        righe = json.loads(righe)
+                    except:
+                        righe = []
+                st.session_state.righe_temp = righe
+                st.session_state.template_selezionato = None
+                st.success(f"Template '{tmpl['titolo']}' caricato.")
+                st.rerun()
+
+        st.markdown("---")
+
     with st.form("form_nuova_offerta"):
         col1, col2 = st.columns(2)
         with col1:
@@ -194,6 +250,7 @@ def _form_nuova_offerta(utente, cliente_id):
     st.markdown("---")
     _form_righe(key_prefix="nr")
 
+
 def _form_modifica_offerta(o, utente):
     righe_esistenti = o.get("righe") or []
     if isinstance(righe_esistenti, str):
@@ -206,11 +263,23 @@ def _form_modifica_offerta(o, utente):
         col1, col2 = st.columns(2)
         with col1:
             titolo = st.text_input("Titolo *", value=o["titolo"])
-            valuta = st.selectbox("Valuta", VALUTE, index=VALUTE.index(o.get("valuta", "CHF")) if o.get("valuta") in VALUTE else 0)
-            data_emissione = st.date_input("Data emissione", value=date.fromisoformat(o["data_emissione"]) if o.get("data_emissione") else date.today())
+            valuta = st.selectbox(
+                "Valuta", VALUTE,
+                index=VALUTE.index(o.get("valuta", "CHF")) if o.get("valuta") in VALUTE else 0
+            )
+            data_emissione = st.date_input(
+                "Data emissione",
+                value=date.fromisoformat(o["data_emissione"]) if o.get("data_emissione") else date.today()
+            )
         with col2:
-            stato = st.selectbox("Stato", STATI_OFFERTA, index=STATI_OFFERTA.index(o["stato"]) if o["stato"] in STATI_OFFERTA else 0)
-            data_scadenza = st.date_input("Scadenza", value=date.fromisoformat(o["data_scadenza"]) if o.get("data_scadenza") else None)
+            stato = st.selectbox(
+                "Stato", STATI_OFFERTA,
+                index=STATI_OFFERTA.index(o["stato"]) if o["stato"] in STATI_OFFERTA else 0
+            )
+            data_scadenza = st.date_input(
+                "Scadenza",
+                value=date.fromisoformat(o["data_scadenza"]) if o.get("data_scadenza") else None
+            )
         descrizione = st.text_area("Descrizione", value=o.get("descrizione", ""))
         note = st.text_area("Note", value=o.get("note", ""))
         col1, col2 = st.columns(2)
@@ -223,11 +292,15 @@ def _form_modifica_offerta(o, utente):
         righe = st.session_state.get("righe_temp", righe_esistenti)
         importo = sum(r.get("totale", 0) for r in righe)
         aggiorna_offerta(o["id"], {
-            "titolo": titolo, "descrizione": descrizione, "importo": importo,
-            "valuta": valuta, "stato": stato,
+            "titolo": titolo,
+            "descrizione": descrizione,
+            "importo": importo,
+            "valuta": valuta,
+            "stato": stato,
             "data_emissione": data_emissione.isoformat(),
             "data_scadenza": data_scadenza.isoformat() if data_scadenza else None,
-            "righe": righe, "note": note,
+            "righe": righe,
+            "note": note,
         })
         st.session_state[f"edit_offerta_{o['id']}"] = False
         st.rerun()
