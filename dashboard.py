@@ -31,9 +31,8 @@ def pagina_dashboard(utente):
     # ── KPI ──
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Clienti totali", stats["tot_clienti"])
-    col2.metric("Pipeline", f"CHF {valore_pipeline:,.0f}")
-    col3.metric("Chiuso", f"CHF {valore_chiuso:,.0f}")
-    col4.metric("Tasso chiusura", f"{tasso_chiusura}%")
+    col2.metric("Chiuso", f"CHF {valore_chiuso:,.0f}")
+    col3.metric("Tasso chiusura", f"{tasso_chiusura}%")
 
     st.markdown("---")
 
