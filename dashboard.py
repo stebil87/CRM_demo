@@ -131,18 +131,30 @@ def pagina_dashboard(utente):
     # ── COMPLEANNI IN ARRIVO ──
     from db import compleanni_in_arrivo
     compleanni = compleanni_in_arrivo(giorni=30)
-    if compleanni:
-        st.markdown("---")
-        st.markdown(
-            "<div style='display:flex;align-items:center;gap:10px;margin-bottom:12px;'>"
-            "<span style='font-size:13px;font-weight:600;color:#1a1a2e;'>"
-            "Compleanni in arrivo</span>"
-            "<span style='background:#fff3cd;color:#856404;font-size:10px;"
-            "font-weight:600;padding:2px 8px;border-radius:10px;'>"
+
+    st.markdown("---")
+    st.markdown(
+        "<div style='display:flex;align-items:center;gap:10px;margin-bottom:12px;'>"
+        "<span style='font-size:13px;font-weight:600;color:#1a1a2e;'>"
+        "Compleanni in arrivo</span>"
+        + (
+            f"<span style='background:#fff3cd;color:#856404;font-size:10px;"
+            f"font-weight:600;padding:2px 8px;border-radius:10px;'>"
             f"{len(compleanni)} nei prossimi 30 giorni</span>"
-            "</div>",
+            if compleanni else ""
+        ) +
+        "</div>",
+        unsafe_allow_html=True
+    )
+
+    if not compleanni:
+        st.markdown(
+            "<div style='background:#f4f4f8;border:1px solid #eaeaf0;"
+            "border-radius:8px;padding:12px 16px;font-size:13px;color:#888;'>"
+            "Nessun compleanno nei prossimi 30 giorni.</div>",
             unsafe_allow_html=True
         )
+    else:
         cols = st.columns(min(len(compleanni), 4))
         for i, c in enumerate(compleanni[:4]):
             nome = f"{c.get('nome','')} {c.get('cognome','')}".strip()
