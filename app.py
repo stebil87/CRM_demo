@@ -454,9 +454,28 @@ with st.sidebar:
         st.session_state.notifiche_disattivate = notifiche_on
         st.rerun()
 
-    if st.button("Esci", key="nav_logout", use_container_width=True):
-        do_logout()
-
+    if st.session_state.get("conferma_logout"):
+        st.markdown(
+            "<div style='background:#fff0f3;border:1px solid #e94560;"
+            "border-radius:8px;padding:12px 14px;margin:8px 0;'>"
+            "<div style='font-size:12px;font-weight:600;color:#e94560;"
+            "margin-bottom:8px;'>Sicuro di voler uscire?</div>"
+            "</div>",
+            unsafe_allow_html=True
+        )
+        col_si, col_no = st.columns(2)
+        with col_si:
+            if st.button("Si, esci", key="logout_si", use_container_width=True):
+                st.session_state.conferma_logout = False
+                do_logout()
+        with col_no:
+            if st.button("Annulla", key="logout_no", use_container_width=True):
+                st.session_state.conferma_logout = False
+                st.rerun()
+    else:
+        if st.button("Esci", key="nav_logout", use_container_width=True):
+            st.session_state.conferma_logout = True
+            st.rerun()
 # ── BREADCRUMB ─────────────────────────────────────────────────────────────
 p = st.session_state.pagina
 breadcrumb_map = {
