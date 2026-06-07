@@ -1,3 +1,4 @@
+# db.py
 from supabase import create_client
 import streamlit as st
 from datetime import datetime, date, timedelta
@@ -32,54 +33,6 @@ def profila(func):
         print(f"[DB] {func.__name__:<40} {ms:>7.1f}ms  {livello}")
         return risultato
     return wrapper
-
-@st.cache_data(ttl=60)
-@profila
-def kpi_operativi():
-    sb = get_sb()
-    try:
-        from datetime import date, timedelta
-        oggi = date.today().isoformat()
-        tra30 = (date.today() + timedelta(days=30)).isoformat()
-
-        # Offerte in attesa
-        offerte = sb.table("offerte").select("stato, importo").execute()
-        offerte_data = offerte.data or []
-        in_attesa = [o for o in offerte_data if o.get("stato") == "inviata"]
-        accettate = [o for o in offerte_data if o.get("stato") == "accettata"]
-        chiuse_neg = [o for o in offerte_data if o.get("stato") in ("rifiutata", "scaduta")]
-
-        n_attesa = len(in_attesa)
-        valore_pipeline = sum(float(o.get("importo") or 0) for o in in_attesa)
-        tot_chiuse = len(accettate) + len(chiuse_neg)
-        tasso = round(len(accettate) / tot_chiuse * 100) if tot_chiuse > 0 else 0
-
-        # Eventi prossimi 30 giorni
-        ev = sb.table("eventi_catering").select(
-            "id, titolo, data_inizio, stato"
-        ).gte("data_inizio", oggi).lte(
-            "data_inizio", tra30 + "T23:59:59"
-        ).not_.in_("stato", ["annullato"]).order("data_inizio").execute()
-        eventi_data = ev.data or []
-        n_eventi = len(eventi_data)
-        prossimo = eventi_data[0] if eventi_data else None
-
-        return {
-            "n_attesa": n_attesa,
-            "valore_pipeline": valore_pipeline,
-            "tasso_chiusura": tasso,
-            "n_eventi_30gg": n_eventi,
-            "prossimo_evento": prossimo,
-        }
-    except Exception as e:
-        print(f"ERRORE kpi_operativi: {e}")
-        return {
-            "n_attesa": 0,
-            "valore_pipeline": 0,
-            "tasso_chiusura": 0,
-            "n_eventi_30gg": 0,
-            "prossimo_evento": None,
-        }
 
 # ── CLIENT ────────────────────────────────────────────
 
@@ -401,7 +354,7 @@ def get_offerta(offerta_id):
             return res.data[0]
         return None
     except:
-        return []
+        return None
 
 def _invalida_cache_offerte():
     lista_offerte.clear()
@@ -527,22 +480,61 @@ def elimina_documento(doc_id, storage_path, user_id=None):
     except Exception as e:
         return str(e)
 
-# ── DASHBOARD ─────────────────────────────────────────
+# ── DASHBOARD — query unificate ───────────────────────
 
 @st.cache_data(ttl=60)
 @profila
 def stats_dashboard():
     sb = get_sb()
     try:
+        oggi = date.today().isoformat()
+        tra30 = (date.today() + timedelta(days=30)).isoformat()
+
+        # Query 1 — clienti
         clienti = sb.table("clienti").select("stato, paese").execute()
+
+        # Query 2 — offerte
         offerte = sb.table("offerte").select("stato, importo").execute()
+        offerte_data = offerte.data or []
+
+        # Query 3 — eventi prossimi 30gg
+        ev = sb.table("eventi_catering").select(
+            "id, titolo, data_inizio, stato"
+        ).gte("data_inizio", oggi).lte(
+            "data_inizio", tra30 + "T23:59:59"
+        ).not_.in_("stato", ["annullato"]).order("data_inizio").execute()
+        eventi_data = ev.data or []
+
+        # Calcoli offerte
+        in_attesa = [o for o in offerte_data if o.get("stato") == "inviata"]
+        accettate = [o for o in offerte_data if o.get("stato") == "accettata"]
+        chiuse_neg = [o for o in offerte_data
+                      if o.get("stato") in ("rifiutata", "scaduta")]
+        tot_chiuse = len(accettate) + len(chiuse_neg)
+
         return {
+            # Per grafici
             "tot_clienti": len(clienti.data) if clienti.data else 0,
             "clienti_data": clienti.data or [],
-            "offerte_data": offerte.data or [],
+            "offerte_data": offerte_data,
+            # KPI operativi
+            "n_attesa": len(in_attesa),
+            "valore_pipeline": sum(
+                float(o.get("importo") or 0) for o in in_attesa),
+            "fatturato_chiuso": sum(
+                float(o.get("importo") or 0) for o in accettate),
+            "tasso_chiusura": round(
+                len(accettate) / tot_chiuse * 100) if tot_chiuse > 0 else 0,
+            "n_eventi_30gg": len(eventi_data),
+            "prossimo_evento": eventi_data[0] if eventi_data else None,
         }
-    except:
-        return {"tot_clienti": 0, "clienti_data": [], "offerte_data": []}
+    except Exception as e:
+        print(f"ERRORE stats_dashboard: {e}")
+        return {
+            "tot_clienti": 0, "clienti_data": [], "offerte_data": [],
+            "n_attesa": 0, "valore_pipeline": 0, "fatturato_chiuso": 0,
+            "tasso_chiusura": 0, "n_eventi_30gg": 0, "prossimo_evento": None,
+        }
 
 # ── MESSAGGI ──────────────────────────────────────────
 
