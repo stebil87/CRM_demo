@@ -150,7 +150,6 @@ def _scheda_evento(ev, utente, colore_stato):
 
 
 def _tab_beo(ev, utente):
-    # Solo event manager e admin possono modificare il BEO
     if not is_event_manager(utente):
         st.markdown("**Banquet Event Order — Sola lettura**")
         st.info("Solo l'event manager può compilare e modificare il BEO.")
@@ -168,7 +167,6 @@ def _tab_beo(ev, utente):
             st.markdown(f"**Note cucina:** {ev.get('note_cucina') or '—'}")
             st.markdown(f"**Note servizio:** {ev.get('note_servizio') or '—'}")
 
-        # Timeline in sola lettura
         tl = ev.get("timeline") or []
         if isinstance(tl, str):
             try:
@@ -185,7 +183,6 @@ def _tab_beo(ev, utente):
                 )
         return
 
-    # ── FORM BEO per event manager ──
     st.markdown("**Banquet Event Order**")
     st.markdown("Compila i dettagli operativi e genera il documento ufficiale.")
     st.markdown("---")
@@ -622,20 +619,24 @@ def _form_nuovo_evento(utente):
             if nuovo:
                 st.success("Evento creato.")
 
-                # Aggiunge automaticamente al calendario di tutti gli utenti
+                # Aggiunge al calendario di tutti gli utenti
                 tutti = lista_utenti()
                 for u in tutti:
                     try:
-                        crea_evento({
+                        risultato = crea_evento({
                             "titolo": titolo,
                             "tipo": "appuntamento",
                             "data_inizio": dt_inizio.isoformat(),
                             "data_fine": dt_fine.isoformat(),
                             "luogo": luogo or "",
-                            "note": f"Evento catering — {note}"
+                            "descrizione": f"Evento catering — {note}"
                             if note else "Evento catering",
                             "proprietario_id": u["id"],
+                            "tutto_il_giorno": False,
+                            "colore": "#1a1a2e",
                         }, utente["id"])
+                        print(f"Calendario OK per {u.get('nome','')} "
+                              f"{u.get('cognome','')}: {risultato is not None}")
                     except Exception as e:
                         print(f"Errore calendario per {u['id']}: {e}")
 
