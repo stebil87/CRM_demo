@@ -358,18 +358,22 @@ if not utente:
             padding-top: 4rem !important;
         }
         /* Input scuri */
-        .stTextInput > div > div > input {
+        .stTextInput > div > div > input,
+        .stTextInput > div > div > input:focus,
+        .stTextInput > div > div > input:active,
+        [data-testid="stAppViewContainer"] .stTextInput > div > div > input,
+        [data-testid="stAppViewContainer"] .stTextInput > div > div > input:focus {
             background: rgba(255,255,255,0.08) !important;
-            border: 1px solid rgba(255,255,255,0.15) !important;
-            color: white !important;
+            border: 1px solid rgba(255,255,255,0.2) !important;
             border-radius: 8px !important;
-        }
-        .stTextInput > div > div > input:focus {
-            border-color: rgba(255,255,255,0.5) !important;
+            color: white !important;
+            -webkit-text-fill-color: white !important;
+            caret-color: white !important;
             box-shadow: none !important;
         }
         .stTextInput > div > div > input::placeholder {
             color: rgba(255,255,255,0.3) !important;
+            -webkit-text-fill-color: rgba(255,255,255,0.3) !important;
         }
         /* Label input */
         .stTextInput label {
