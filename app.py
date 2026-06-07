@@ -248,21 +248,54 @@ hr { border: none; border-top: 1px solid #eaeaf0; margin: 16px 0; }
     padding: 14px 16px 6px 16px;
 }
 
+/* ── LOGIN PAGE ── */
+.login-page-bg {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: linear-gradient(135deg, #0d0d1a 0%, #1a1a2e 60%, #0f3460 100%);
+    z-index: 0;
+}
+.login-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 40px 48px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    position: relative;
+    z-index: 1;
+}
+.login-card .stTextInput > div > div > input {
+    background: rgba(255,255,255,0.06) !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    color: white !important;
+    border-radius: 8px !important;
+}
+.login-card .stTextInput > div > div > input:focus {
+    border-color: rgba(255,255,255,0.4) !important;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.08) !important;
+}
+.login-card label {
+    color: rgba(255,255,255,0.6) !important;
+}
 .login-label {
     font-size: 11px;
     font-weight: 700;
-    letter-spacing: 1.2px;
+    letter-spacing: 1.5px;
     text-transform: uppercase;
-    color: #aaaabc;
+    color: rgba(255,255,255,0.4);
     text-align: center;
     margin-bottom: 24px;
 }
 .login-footer {
     font-size: 11px;
-    color: #c0c0cc;
+    color: rgba(255,255,255,0.25);
     text-align: center;
     margin-top: 28px;
     letter-spacing: 0.3px;
+    position: relative;
+    z-index: 1;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -307,29 +340,61 @@ if utente:
             )
 
 if not utente:
-    _, col, _ = st.columns([1, 1, 1])
-    with col:
+    # Sfondo nero fullscreen
+    st.markdown(
+        "<div class='login-page-bg'></div>",
+        unsafe_allow_html=True
+    )
+    st.markdown(
+        """<style>
+        [data-testid="stAppViewContainer"] {
+            background: transparent !important;
+        }
+        [data-testid="stAppViewBlockContainer"] {
+            background: transparent !important;
+        }
+        .main {
+            background: transparent !important;
+        }
+        section[data-testid="stSidebar"] {
+            display: none !important;
+        }
+        </style>""",
+        unsafe_allow_html=True
+    )
+
+    col_sx, col_center, col_dx = st.columns([1, 1.2, 1])
+    with col_center:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
+
+        st.markdown("<div class='login-card'>", unsafe_allow_html=True)
+
         try:
-            logo_col1, logo_col2, logo_col3 = st.columns([1, 2, 1])
-            with logo_col2:
-                st.image("1908_Group_Black.png", width='stretch')
+            logo1, logo2, logo3 = st.columns([1, 2, 1])
+            with logo2:
+                st.image("1908_Group_White.png", use_container_width=True)
         except:
             st.markdown(
-                "<h2 style='text-align:center;color:#1a1a2e;'>1908 Group SA</h2>",
+                "<h2 style='text-align:center;color:white;'>1908 Group SA</h2>",
                 unsafe_allow_html=True
             )
+
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown(
             "<p class='login-label'>Accesso riservato</p>",
             unsafe_allow_html=True
         )
+
         pagina_login()
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
         st.markdown(
             "<p class='login-footer'>1908 Group SA &nbsp;·&nbsp; "
             "Piattaforma CRM &nbsp;·&nbsp; Uso riservato</p>",
             unsafe_allow_html=True
         )
+
     st.stop()
 
 # ── MESSAGGI NON LETTI ─────────────────────────────────────────────────────
@@ -355,7 +420,7 @@ if not st.session_state.get("notifiche_disattivate", False):
 with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
     try:
-        st.image("1908_Group_Black.png", width=150)
+        st.image("1908_Group_White.png", width=150)
     except:
         st.markdown("**1908 Group SA**")
 
@@ -447,7 +512,6 @@ with st.sidebar:
         ("calendario",  "Calendario"),
         ("messaggi",    label_msg),
         ("assistente",  "Assistente AI"),
-        # ("inbox", "Posta condivisa"),
     ]
     if is_admin(utente):
         nav_items.append(("admin", "Amministrazione"))
