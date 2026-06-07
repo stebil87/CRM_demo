@@ -223,7 +223,7 @@ def pagina_dashboard(utente):
             unsafe_allow_html=True
         )
 
-   with col2:
+    with col2:
         st.markdown(
             "<div style='background:white;border:1px solid #eaeaf0;"
             "border-top:4px solid #2d6a4f;border-radius:10px;"
