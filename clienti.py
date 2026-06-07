@@ -137,35 +137,41 @@ def _scheda_cliente(c, utente):
 def _form_nuovo_cliente(utente):
     st.subheader("Nuovo cliente")
 
-    # Tipo FUORI dal form per aggiornamento immediato
+    if "new_cliente_tipo" not in st.session_state:
+        st.session_state.new_cliente_tipo = "fisica"
+
     tipo = st.radio(
         "Tipo cliente",
         ["fisica", "giuridica"],
-        index=0,
+        index=0 if st.session_state.new_cliente_tipo == "fisica" else 1,
         key="new_tipo",
         horizontal=True,
         format_func=lambda x: "Persona fisica" if x == "fisica" else "Persona giuridica"
     )
+    st.session_state.new_cliente_tipo = tipo
     st.markdown("---")
 
     with st.form("form_nuovo_cliente"):
         dati = _form_campi(tipo=tipo, d={}, key_prefix="new")
+        # Campo nascosto per trasmettere il tipo dentro il form
         submitted = st.form_submit_button("Crea cliente", use_container_width=True)
 
     if submitted:
+        tipo_finale = st.session_state.new_cliente_tipo
         errori = []
-        if tipo == "giuridica" and not dati.get("ragione_sociale"):
+        if tipo_finale == "giuridica" and not dati.get("ragione_sociale"):
             errori.append("Ragione sociale obbligatoria")
-        if tipo == "fisica" and not dati.get("nome"):
+        if tipo_finale == "fisica" and not dati.get("nome"):
             errori.append("Nome obbligatorio")
-        if tipo == "fisica" and not dati.get("cognome"):
+        if tipo_finale == "fisica" and not dati.get("cognome"):
             errori.append("Cognome obbligatorio")
         if errori:
             st.error(" · ".join(errori))
         else:
-            dati["tipo"] = tipo
+            dati["tipo"] = tipo_finale
             crea_cliente(dati, utente["id"])
             st.success("Cliente creato.")
+            st.session_state.new_cliente_tipo = "fisica"
             st.rerun()
 
 
