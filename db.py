@@ -42,6 +42,14 @@ def profila(func):
         return risultato
     return wrapper
 
+def elimina_ore(ore_id):
+    sb = get_sb()
+    try:
+        sb.table("ore_evento").delete().eq("id", ore_id).execute()
+        _invalida_cache_ore()
+    except Exception as e:
+        print(f"ERRORE elimina_ore: {e}")
+
 # ── CLIENT ────────────────────────────────────────────
 
 @st.cache_resource
