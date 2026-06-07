@@ -11,7 +11,11 @@ from calendario import pagina_calendario
 from template_offerte import pagina_template
 from eventi_catering import pagina_eventi
 from inbox_widget import pagina_inbox
+from assistente import pagina_assistente, widget_assistente_sidebar
 from db import lista_messaggi_non_letti, log_attivita
+import time as _time
+
+TIMEOUT_SECONDI = 600  # 10 minuti
 
 st.set_page_config(
     page_title="1908 Group — CRM",
@@ -44,7 +48,6 @@ header[data-testid="stHeader"] {
 [data-testid="stAppViewContainer"] > section > div:first-child {
     padding-top: 0 !important;
 }
-
 [data-testid="collapsedControl"] { display: none !important; }
 button[data-testid="baseButton-header"] { display: none !important; }
 
@@ -98,17 +101,8 @@ section[data-testid="stSidebar"] .streamlit-expanderContent {
 }
 
 .main .block-container {
-    padding-top: 0 !important;
-    padding-bottom: 2rem !important;
-    padding-left: 2.5rem !important;
-    padding-right: 2.5rem !important;
+    padding: 0rem 2.5rem 2rem 2.5rem;
     max-width: 1400px;
-    margin-top: -4rem !important;
-}
-
-.main > div:first-child {
-    padding-top: 0 !important;
-    margin-top: -2rem !important;
 }
 
 h1 {
@@ -281,28 +275,36 @@ for k, v in {
     "reply_to": None,
     "template_selezionato": None,
     "offerta_per_evento": None,
+    "conferma_logout": False,
+    "assistente_history": [],
+    "assistente_state": {},
 }.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ── TIMEOUT SESSIONE (10 minuti) ──────────────────────────────────────────
-import time as _time
-
-TIMEOUT_SECONDI = 600  # 10 minuti
-
-if utente := check_auth():
-    ora_corrente = _time.time()
-    ultima_attivita = st.session_state.get("ultima_attivita", ora_corrente)
-    
-    if ora_corrente - ultima_attivita > TIMEOUT_SECONDI:
-        # Sessione scaduta
-        do_logout()
-    else:
-        # Aggiorna timestamp ad ogni interazione
-        st.session_state.ultima_attivita = ora_corrente
-
 # ── AUTH ───────────────────────────────────────────────────────────────────
 utente = check_auth()
+
+if utente:
+    ora_corrente = _time.time()
+    ultima_attivita = st.session_state.get("ultima_attivita", ora_corrente)
+    secondi_inattivi = ora_corrente - ultima_attivita
+
+    if secondi_inattivi > TIMEOUT_SECONDI:
+        st.session_state.utente = None
+        st.session_state.pagina = "dashboard"
+        st.session_state.msg_notificati = set()
+        utente = None
+        st.warning("Sessione scaduta per inattività. Effettua nuovamente il login.")
+        st.stop()
+    else:
+        st.session_state.ultima_attivita = ora_corrente
+
+        if secondi_inattivi > TIMEOUT_SECONDI - 120:
+            minuti_rimasti = int((TIMEOUT_SECONDI - secondi_inattivi) / 60) + 1
+            st.sidebar.warning(
+                f"Sessione in scadenza tra {minuti_rimasti} minuto/i."
+            )
 
 if not utente:
     _, col, _ = st.columns([1, 1, 1])
@@ -334,13 +336,10 @@ if not utente:
 non_letti = lista_messaggi_non_letti(utente["id"])
 n_non_letti = len(non_letti)
 
-# Al primo caricamento dopo login, segna tutti i messaggi esistenti
-# come già visti — i toast appaiono solo per i nuovi che arrivano dopo
-if "msg_notificati" not in st.session_state:
-    st.session_state.msg_notificati = {m["id"] for m in non_letti}
-
-# ── NOTIFICHE TOAST — solo per messaggi arrivati durante la sessione ───────
+# ── NOTIFICHE TOAST GLOBALI ────────────────────────────────────────────────
 if not st.session_state.get("notifiche_disattivate", False):
+    if "msg_notificati" not in st.session_state:
+        st.session_state.msg_notificati = {m["id"] for m in non_letti}
     gia_notificati = st.session_state.msg_notificati
     nuovi_toast = [m for m in non_letti if m["id"] not in gia_notificati]
     if nuovi_toast:
@@ -351,6 +350,7 @@ if not st.session_state.get("notifiche_disattivate", False):
             st.toast(f"Nuovo messaggio da {nome_mitt}: {oggetto}", icon="✉")
             gia_notificati.add(m["id"])
         st.session_state.msg_notificati = gia_notificati
+
 # ── SIDEBAR ────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
@@ -446,7 +446,8 @@ with st.sidebar:
         ("eventi",      "Eventi"),
         ("calendario",  "Calendario"),
         ("messaggi",    label_msg),
-        # ("inbox", "Posta condivisa"),  # attivare quando pronto
+        ("assistente",  "Assistente AI"),
+        # ("inbox", "Posta condivisa"),
     ]
     if is_admin(utente):
         nav_items.append(("admin", "Amministrazione"))
@@ -454,10 +455,19 @@ with st.sidebar:
     for pagina_key, label in nav_items:
         if st.button(label, key=f"nav_{pagina_key}", use_container_width=True):
             st.session_state.pagina = pagina_key
+            st.session_state.pagina_precedente = st.session_state.pagina
             if pagina_key == "offerte_all":
                 st.session_state.cliente_id = None
                 st.session_state.cliente_nome = None
             st.rerun()
+
+    st.markdown(
+        "<hr style='border-color:#2a2a4a;margin:12px 0;'>",
+        unsafe_allow_html=True
+    )
+
+    # ── ASSISTENTE WIDGET ──
+    widget_assistente_sidebar(utente)
 
     st.markdown(
         "<hr style='border-color:#2a2a4a;margin:12px 0;'>",
@@ -470,6 +480,7 @@ with st.sidebar:
         st.session_state.notifiche_disattivate = notifiche_on
         st.rerun()
 
+    # ── ESCI CON CONFERMA ──
     if st.session_state.get("conferma_logout"):
         st.markdown(
             "<div style='background:#e94560;border-radius:8px;"
@@ -492,6 +503,7 @@ with st.sidebar:
         if st.button("Esci", key="nav_logout", use_container_width=True):
             st.session_state.conferma_logout = True
             st.rerun()
+
 # ── BREADCRUMB ─────────────────────────────────────────────────────────────
 p = st.session_state.pagina
 breadcrumb_map = {
@@ -506,6 +518,7 @@ breadcrumb_map = {
     "calendario":  "Calendario",
     "messaggi":    "Messaggi",
     "inbox":       "Posta condivisa",
+    "assistente":  "Assistente AI",
     "admin":       "Amministrazione",
 }
 breadcrumb = breadcrumb_map.get(p, "")
@@ -536,5 +549,7 @@ elif p == "messaggi":
     pagina_messaggi(utente)
 elif p == "inbox":
     pagina_inbox(utente)
+elif p == "assistente":
+    pagina_assistente(utente)
 elif p == "admin":
     pagina_admin(utente)
