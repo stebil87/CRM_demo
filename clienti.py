@@ -3,69 +3,14 @@ from db import lista_clienti, get_cliente, crea_cliente, aggiorna_cliente, elimi
 from auth import can_edit, is_admin
 
 STATI = ["prospect", "attivo", "inattivo", "perso"]
-SETTORI = ["Consulenza", "Tecnologia", "Commercio", "Industria", "Servizi",def _form_nuovo_cliente(utente):
-    st.subheader("Nuovo cliente")
-
-    # Inizializza tipo in session state
-    if "new_cliente_tipo" not in st.session_state:
-        st.session_state.new_cliente_tipo = "fisica"
-
-    # Bottoni fuori dal form per scegliere il tipo
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button(
-            "Persona fisica" + (" ✓" if st.session_state.new_cliente_tipo == "fisica" else ""),
-            key="btn_tipo_fisica",
-            use_container_width=True
-        ):
-            st.session_state.new_cliente_tipo = "fisica"
-            st.rerun()
-    with col2:
-        if st.button(
-            "Persona giuridica" + (" ✓" if st.session_state.new_cliente_tipo == "giuridica" else ""),
-            key="btn_tipo_giuridica",
-            use_container_width=True
-        ):
-            st.session_state.new_cliente_tipo = "giuridica"
-            st.rerun()
-
-    tipo = st.session_state.new_cliente_tipo
-    st.markdown(
-        f"<div style='background:#1a1a2e;color:white;border-radius:6px;"
-        f"padding:6px 14px;font-size:12px;font-weight:600;margin-bottom:12px;"
-        f"display:inline-block;'>"
-        f"{'Persona giuridica' if tipo == 'giuridica' else 'Persona fisica'}</div>",
-        unsafe_allow_html=True
-    )
-    st.markdown("---")
-
-    with st.form("form_nuovo_cliente"):
-        dati = _form_campi(tipo=tipo, d={}, key_prefix="new")
-        submitted = st.form_submit_button("Crea cliente", use_container_width=True)
-
-    if submitted:
-        tipo_finale = st.session_state.new_cliente_tipo
-        errori = []
-        if tipo_finale == "giuridica" and not dati.get("ragione_sociale"):
-            errori.append("Ragione sociale obbligatoria")
-        if tipo_finale == "fisica" and not dati.get("nome"):
-            errori.append("Nome obbligatorio")
-        if tipo_finale == "fisica" and not dati.get("cognome"):
-            errori.append("Cognome obbligatorio")
-        if errori:
-            st.error(" · ".join(errori))
-        else:
-            dati["tipo"] = tipo_finale
-            risultato = crea_cliente(dati, utente["id"])
-            if risultato:
-                st.success("Cliente creato.")
-                st.session_state.new_cliente_tipo = "fisica"
-                st.rerun()
-            else:
-                st.error("Errore nel salvataggio — riprova.")
-           "Sanità", "Finanza", "Immobiliare", "Logistica", "Turismo", "Alimentare", "Altro"]
-FORME_GIURIDICHE = ["SA", "Sagl", "Ditta individuale", "Associazione",
-                    "Fondazione", "Cooperativa", "Società semplice", "Altro"]
+SETTORI = [
+    "Consulenza", "Tecnologia", "Commercio", "Industria", "Servizi",
+    "Sanità", "Finanza", "Immobiliare", "Logistica", "Turismo", "Alimentare", "Altro"
+]
+FORME_GIURIDICHE = [
+    "SA", "Sagl", "Ditta individuale", "Associazione",
+    "Fondazione", "Cooperativa", "Società semplice", "Altro"
+]
 PAESI = [
     "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Arabia Saudita", "Argentina",
     "Armenia", "Australia", "Austria", "Azerbaigian", "Bahrain", "Bangladesh", "Belgio",
@@ -92,15 +37,6 @@ def nome_display(c):
     if c["tipo"] == "giuridica":
         return c.get("ragione_sociale") or "—"
     return f"{c.get('nome','')} {c.get('cognome','')}".strip() or "—"
-
-def pagina_clienti(utente):
-    st.title("Clienti")
-    
-    # DEBUG temporaneo
-    from db import lista_clienti as _lc
-    test = _lc()
-    st.write(f"DEBUG totale clienti: {len(test)}")
-    st.write(f"DEBUG tipi: {[c.get('tipo') for c in test]}")
 
 
 def pagina_clienti(utente):
@@ -151,6 +87,7 @@ def _scheda_cliente(c, utente):
             )
             st.markdown(f"**Email referente:** {c.get('contatto_email','—')}")
             st.markdown(f"**Tel referente:** {c.get('contatto_telefono','—')}")
+            st.markdown(f"**Sito web:** {c.get('sito_web','—')}")
         else:
             st.markdown(f"**Nome:** {c.get('nome','')} {c.get('cognome','')}")
             st.markdown(f"**Data di nascita:** {c.get('data_nascita','—')}")
@@ -160,8 +97,6 @@ def _scheda_cliente(c, utente):
         st.markdown(f"**Indirizzo:** {c.get('indirizzo','—')}")
         st.markdown(f"**Citta:** {c.get('citta','—')} {c.get('cap','')}")
         st.markdown(f"**Paese:** {c.get('paese','—')}")
-        if c["tipo"] == "giuridica":
-            st.markdown(f"**Sito web:** {c.get('sito_web','—')}")
         st.markdown(f"**Stato:** {c.get('stato','—').upper()}")
         st.markdown(f"**Note:** {c.get('note','—')}")
 
@@ -196,11 +131,9 @@ def _scheda_cliente(c, utente):
 def _form_nuovo_cliente(utente):
     st.subheader("Nuovo cliente")
 
-    # Inizializza tipo in session state
     if "new_cliente_tipo" not in st.session_state:
         st.session_state.new_cliente_tipo = "fisica"
 
-    # Bottoni fuori dal form per scegliere il tipo
     col1, col2 = st.columns(2)
     with col1:
         if st.button(
@@ -288,11 +221,9 @@ def _form_modifica_cliente(c, utente):
 
 
 def _form_campi(tipo, d, key_prefix):
-    """Form campi separati per persona fisica e giuridica."""
     risultato = {}
 
     if tipo == "giuridica":
-        # ── DATI AZIENDALI ──
         st.markdown("**Dati aziendali**")
         col1, col2 = st.columns(2)
         with col1:
@@ -332,7 +263,6 @@ def _form_campi(tipo, d, key_prefix):
             )
 
         st.markdown("---")
-        # ── REFERENTE PRINCIPALE ──
         st.markdown("**Referente principale**")
         col1, col2 = st.columns(2)
         with col1:
@@ -365,7 +295,6 @@ def _form_campi(tipo, d, key_prefix):
         )
 
     else:
-        # ── DATI PERSONALI ──
         st.markdown("**Dati personali**")
         col1, col2 = st.columns(2)
         with col1:
@@ -388,7 +317,6 @@ def _form_campi(tipo, d, key_prefix):
         )
 
     st.markdown("---")
-    # ── RECAPITI ──
     st.markdown("**Recapiti**")
     col1, col2 = st.columns(2)
     with col1:
@@ -428,7 +356,6 @@ def _form_campi(tipo, d, key_prefix):
         )
 
     st.markdown("---")
-    # ── STATO E NOTE ──
     risultato["stato"] = st.selectbox(
         "Stato cliente",
         STATI,
@@ -442,7 +369,6 @@ def _form_campi(tipo, d, key_prefix):
         key=f"{key_prefix}_note"
     )
 
-    # ── ASSEGNATO A ──
     utenti = lista_utenti()
     if utenti:
         opzioni = {f"{u['nome']} {u['cognome']}": u["id"] for u in utenti}
