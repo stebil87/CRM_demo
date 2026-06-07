@@ -285,6 +285,22 @@ for k, v in {
     if k not in st.session_state:
         st.session_state[k] = v
 
+# ── TIMEOUT SESSIONE (10 minuti) ──────────────────────────────────────────
+import time as _time
+
+TIMEOUT_SECONDI = 600  # 10 minuti
+
+if utente := check_auth():
+    ora_corrente = _time.time()
+    ultima_attivita = st.session_state.get("ultima_attivita", ora_corrente)
+    
+    if ora_corrente - ultima_attivita > TIMEOUT_SECONDI:
+        # Sessione scaduta
+        do_logout()
+    else:
+        # Aggiorna timestamp ad ogni interazione
+        st.session_state.ultima_attivita = ora_corrente
+
 # ── AUTH ───────────────────────────────────────────────────────────────────
 utente = check_auth()
 
