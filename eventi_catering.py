@@ -6,7 +6,7 @@ from db import (
     aggiorna_evento_catering, lista_collaboratori_evento, aggiungi_collaboratore,
     rimuovi_collaboratore, segna_collaboratore_avvisato, lista_allegati_evento,
     carica_allegato_evento, scarica_allegato_evento, lista_ore_evento,
-    inserisci_ore, lista_utenti, utenti_event_manager, get_cliente
+    inserisci_ore, elimina_ore, lista_utenti, utenti_event_manager, get_cliente
 )
 from auth import can_edit, is_admin
 
@@ -150,6 +150,42 @@ def _scheda_evento(ev, utente, colore_stato):
 
 
 def _tab_beo(ev, utente):
+    # Solo event manager e admin possono modificare il BEO
+    if not is_event_manager(utente):
+        st.markdown("**Banquet Event Order — Sola lettura**")
+        st.info("Solo l'event manager può compilare e modificare il BEO.")
+        st.markdown("---")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown(f"**Coperti:** {ev.get('numero_coperti') or '—'}")
+            st.markdown(
+                f"**Referente:** {ev.get('referente_cliente_nome') or '—'} "
+                f"{ev.get('referente_cliente_telefono') or ''}"
+            )
+            st.markdown(f"**Note allergeni:** {ev.get('note_allergeni') or '—'}")
+        with col2:
+            st.markdown(f"**Setup sala:** {ev.get('setup_sala') or '—'}")
+            st.markdown(f"**Note cucina:** {ev.get('note_cucina') or '—'}")
+            st.markdown(f"**Note servizio:** {ev.get('note_servizio') or '—'}")
+
+        # Timeline in sola lettura
+        tl = ev.get("timeline") or []
+        if isinstance(tl, str):
+            try:
+                tl = json.loads(tl)
+            except:
+                tl = []
+        if tl:
+            st.markdown("---")
+            st.markdown("**Timeline operativa**")
+            for t in tl:
+                st.markdown(
+                    f"**{t.get('orario','—')}** — {t.get('attivita','—')} "
+                    f"· {t.get('responsabile','—')}"
+                )
+        return
+
+    # ── FORM BEO per event manager ──
     st.markdown("**Banquet Event Order**")
     st.markdown("Compila i dettagli operativi e genera il documento ufficiale.")
     st.markdown("---")
@@ -417,11 +453,25 @@ def _gestione_ore(ev, utente):
                 if u else o.get("nome_esterno", "—")
             ore_tot = float(o.get("ore_totali") or 0)
             totale += ore_tot
-            st.markdown(
-                f"**{nome}** — dal {o['data_dal']} al {o['data_al']} "
-                f"· {o['orario_da']}–{o['orario_a']} · **{ore_tot}h**"
-                + (f" · {o['note']}" if o.get("note") else "")
-            )
+
+            col1, col2 = st.columns([5, 1])
+            with col1:
+                st.markdown(
+                    f"**{nome}** — dal {o['data_dal']} al {o['data_al']} "
+                    f"· {o['orario_da']}–{o['orario_a']} · **{ore_tot}h**"
+                    + (f" · {o['note']}" if o.get("note") else "")
+                )
+            with col2:
+                utente_id_ore = o.get("utente_id")
+                può_eliminare = (
+                    utente_id_ore == utente["id"] or
+                    is_event_manager(utente)
+                )
+                if può_eliminare:
+                    if st.button("Elimina", key=f"del_ore_{o['id']}"):
+                        elimina_ore(o["id"])
+                        st.rerun()
+
         st.markdown(f"**Totale ore: {totale:.1f}h**")
         st.markdown("---")
 
@@ -457,7 +507,6 @@ def _gestione_ore(ev, utente):
                     inserisci_ore({
                         "evento_id": ev["id"],
                         "utente_id": utente["id"],
-                        "data_dal": data_dal.isoformat(),
                         "data_dal": data_dal.isoformat(),
                         "data_al": data_al.isoformat(),
                         "orario_da": orario_da,
