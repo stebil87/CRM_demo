@@ -33,6 +33,54 @@ def profila(func):
         return risultato
     return wrapper
 
+@st.cache_data(ttl=60)
+@profila
+def kpi_operativi():
+    sb = get_sb()
+    try:
+        from datetime import date, timedelta
+        oggi = date.today().isoformat()
+        tra30 = (date.today() + timedelta(days=30)).isoformat()
+
+        # Offerte in attesa
+        offerte = sb.table("offerte").select("stato, importo").execute()
+        offerte_data = offerte.data or []
+        in_attesa = [o for o in offerte_data if o.get("stato") == "inviata"]
+        accettate = [o for o in offerte_data if o.get("stato") == "accettata"]
+        chiuse_neg = [o for o in offerte_data if o.get("stato") in ("rifiutata", "scaduta")]
+
+        n_attesa = len(in_attesa)
+        valore_pipeline = sum(float(o.get("importo") or 0) for o in in_attesa)
+        tot_chiuse = len(accettate) + len(chiuse_neg)
+        tasso = round(len(accettate) / tot_chiuse * 100) if tot_chiuse > 0 else 0
+
+        # Eventi prossimi 30 giorni
+        ev = sb.table("eventi_catering").select(
+            "id, titolo, data_inizio, stato"
+        ).gte("data_inizio", oggi).lte(
+            "data_inizio", tra30 + "T23:59:59"
+        ).not_.in_("stato", ["annullato"]).order("data_inizio").execute()
+        eventi_data = ev.data or []
+        n_eventi = len(eventi_data)
+        prossimo = eventi_data[0] if eventi_data else None
+
+        return {
+            "n_attesa": n_attesa,
+            "valore_pipeline": valore_pipeline,
+            "tasso_chiusura": tasso,
+            "n_eventi_30gg": n_eventi,
+            "prossimo_evento": prossimo,
+        }
+    except Exception as e:
+        print(f"ERRORE kpi_operativi: {e}")
+        return {
+            "n_attesa": 0,
+            "valore_pipeline": 0,
+            "tasso_chiusura": 0,
+            "n_eventi_30gg": 0,
+            "prossimo_evento": None,
+        }
+
 # ── CLIENT ────────────────────────────────────────────
 
 @st.cache_resource
