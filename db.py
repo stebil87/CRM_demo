@@ -570,7 +570,7 @@ def lista_messaggi_inviati(user_id):
     except:
         return []
 
-@st.cache_data(ttl=15)
+@st.cache_data(ttl=30)
 @profila
 def lista_messaggi_non_letti(user_id):
     sb = get_sb()
