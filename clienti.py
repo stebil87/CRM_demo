@@ -38,6 +38,18 @@ def nome_display(c):
         return c.get("ragione_sociale") or "—"
     return f"{c.get('nome','')} {c.get('cognome','')}".strip() or "—"
 
+def _formatta_data(data_str):
+    if not data_str:
+        return "—"
+    try:
+        from datetime import datetime
+        if "/" in str(data_str):
+            return data_str
+        dt = datetime.strptime(str(data_str)[:10], "%Y-%m-%d")
+        return dt.strftime("%d/%m/%Y")
+    except:
+        return str(data_str)
+
 
 def pagina_clienti(utente):
     st.title("Clienti")
@@ -90,7 +102,7 @@ def _scheda_cliente(c, utente):
             st.markdown(f"**Sito web:** {c.get('sito_web','—')}")
         else:
             st.markdown(f"**Nome:** {c.get('nome','')} {c.get('cognome','')}")
-            st.markdown(f"**Data di nascita:** {c.get('data_nascita','—')}")
+            st.markdown(f"**Data di nascita:** {_formatta_data(c.get('data_nascita',''))}")
         st.markdown(f"**Email:** {c.get('email','—')}")
         st.markdown(f"**Telefono:** {c.get('telefono','—')}")
     with col2:
