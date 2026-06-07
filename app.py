@@ -463,7 +463,6 @@ with st.sidebar:
             "</div>",
             unsafe_allow_html=True
         )
-        )
         col_si, col_no = st.columns(2)
         with col_si:
             if st.button("Si, esci", key="logout_si", use_container_width=True):
