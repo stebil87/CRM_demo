@@ -2,6 +2,8 @@ from supabase import create_client
 import streamlit as st
 from datetime import datetime, date, timedelta
 import calendar as cal_lib
+import time
+import functools
 
 try:
     import pytz
@@ -13,6 +15,23 @@ def ora_locale():
     if TIMEZONE:
         return datetime.now(TIMEZONE)
     return datetime.now()
+
+# ── PROFILER ──────────────────────────────────────────
+
+PROFILING = True  # metti False per disattivare
+
+def profila(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if not PROFILING:
+            return func(*args, **kwargs)
+        t0 = time.time()
+        risultato = func(*args, **kwargs)
+        ms = (time.time() - t0) * 1000
+        livello = "🔴 LENTO" if ms > 500 else "🟡 OK" if ms > 100 else "🟢 veloce"
+        print(f"[DB] {func.__name__:<40} {ms:>7.1f}ms  {livello}")
+        return risultato
+    return wrapper
 
 # ── CLIENT ────────────────────────────────────────────
 
@@ -44,6 +63,7 @@ def log_attivita(utente_id, azione, entita, entita_id=None, dettagli=None):
 
 # ── AUTH ──────────────────────────────────────────────
 
+@profila
 def get_profilo_utente(user_id):
     sb = get_sb()
     try:
@@ -66,6 +86,7 @@ def crea_utente_profilo(user_id, nome, cognome, email, ruolo):
     except Exception as e:
         return str(e)
 
+@profila
 @st.cache_data(ttl=120)
 def lista_utenti():
     sb = get_sb()
@@ -88,6 +109,7 @@ def disattiva_utente(user_id):
     sb.table("utenti").update({"attivo": False}).eq("id", user_id).execute()
     _invalida_cache_utenti()
 
+@profila
 @st.cache_data(ttl=120)
 def utenti_event_manager():
     sb = get_sb()
@@ -101,6 +123,7 @@ def utenti_event_manager():
 
 # ── CLIENTI ──────────────────────────────────────────
 
+@profila
 @st.cache_data(ttl=60)
 def lista_clienti(filtro_stato=None, filtro_testo=None):
     sb = get_sb()
@@ -122,6 +145,7 @@ def lista_clienti(filtro_stato=None, filtro_testo=None):
     except:
         return []
 
+@profila
 @st.cache_data(ttl=60)
 def get_cliente(cliente_id):
     sb = get_sb()
@@ -136,6 +160,8 @@ def get_cliente(cliente_id):
 def _invalida_cache_clienti():
     lista_clienti.clear()
     get_cliente.clear()
+    stats_dashboard.clear()
+    compleanni_in_arrivo.clear()
 
 def crea_cliente(dati, user_id):
     sb = get_sb()
@@ -173,6 +199,8 @@ def elimina_cliente(cliente_id, user_id=None):
     except:
         pass
 
+@profila
+@st.cache_data(ttl=120)
 def compleanni_in_arrivo(giorni=30):
     sb = get_sb()
     try:
@@ -216,6 +244,7 @@ def compleanni_in_arrivo(giorni=30):
 
 # ── DIARIO ────────────────────────────────────────────
 
+@profila
 @st.cache_data(ttl=30)
 def lista_diario(cliente_id):
     sb = get_sb()
@@ -267,6 +296,7 @@ def elimina_voce_diario(voce_id, user_id=None):
     except:
         pass
 
+@profila
 @st.cache_data(ttl=60)
 def followup_oggi():
     sb = get_sb()
@@ -279,6 +309,7 @@ def followup_oggi():
     except:
         return []
 
+@profila
 @st.cache_data(ttl=60)
 def followup_prossimi7():
     sb = get_sb()
@@ -296,6 +327,7 @@ def followup_prossimi7():
 
 # ── OFFERTE ───────────────────────────────────────────
 
+@profila
 @st.cache_data(ttl=30)
 def lista_offerte(cliente_id=None):
     sb = get_sb()
@@ -311,6 +343,7 @@ def lista_offerte(cliente_id=None):
     except:
         return []
 
+@profila
 @st.cache_data(ttl=30)
 def get_offerta(offerta_id):
     sb = get_sb()
@@ -325,6 +358,7 @@ def get_offerta(offerta_id):
 def _invalida_cache_offerte():
     lista_offerte.clear()
     get_offerta.clear()
+    stats_dashboard.clear()
 
 def crea_offerta(dati, user_id):
     sb = get_sb()
@@ -383,6 +417,7 @@ def nuova_versione_offerta(offerta_id, user_id):
 
 # ── DOCUMENTI ─────────────────────────────────────────
 
+@profila
 @st.cache_data(ttl=60)
 def lista_documenti(cliente_id):
     sb = get_sb()
@@ -444,6 +479,7 @@ def elimina_documento(doc_id, storage_path, user_id=None):
 
 # ── DASHBOARD ─────────────────────────────────────────
 
+@profila
 @st.cache_data(ttl=60)
 def stats_dashboard():
     sb = get_sb()
@@ -460,6 +496,7 @@ def stats_dashboard():
 
 # ── MESSAGGI ──────────────────────────────────────────
 
+@profila
 @st.cache_data(ttl=15)
 def lista_messaggi_ricevuti(user_id):
     sb = get_sb()
@@ -471,6 +508,7 @@ def lista_messaggi_ricevuti(user_id):
     except:
         return []
 
+@profila
 @st.cache_data(ttl=15)
 def lista_messaggi_inviati(user_id):
     sb = get_sb()
@@ -482,6 +520,7 @@ def lista_messaggi_inviati(user_id):
     except:
         return []
 
+@profila
 @st.cache_data(ttl=15)
 def lista_messaggi_non_letti(user_id):
     sb = get_sb()
@@ -528,6 +567,7 @@ def segna_come_letto(messaggio_id):
 
 # ── CALENDARIO ────────────────────────────────────────
 
+@profila
 @st.cache_data(ttl=30)
 def get_autorizzazioni_calendario(utente_id):
     sb = get_sb()
@@ -540,6 +580,7 @@ def get_autorizzazioni_calendario(utente_id):
     except:
         return []
 
+@profila
 @st.cache_data(ttl=30)
 def get_calendari_visibili(utente_id):
     sb = get_sb()
@@ -554,6 +595,7 @@ def get_calendari_visibili(utente_id):
     except:
         return [utente_id]
 
+@profila
 @st.cache_data(ttl=30)
 def get_calendari_modificabili(utente_id):
     sb = get_sb()
@@ -601,6 +643,7 @@ def elimina_autorizzazione_calendario(utente_id, calendario_di):
     except Exception as e:
         return str(e)
 
+@profila
 @st.cache_data(ttl=30)
 def eventi_del_mese_multi(anno, mese, utenti_ids_tuple):
     sb = get_sb()
@@ -618,6 +661,7 @@ def eventi_del_mese_multi(anno, mese, utenti_ids_tuple):
     except:
         return []
 
+@profila
 @st.cache_data(ttl=30)
 def eventi_oggi_multi(utenti_ids_tuple):
     sb = get_sb()
@@ -672,6 +716,7 @@ def elimina_evento(evento_id, user_id=None):
 
 # ── NOTE DASHBOARD ────────────────────────────────────
 
+@profila
 @st.cache_data(ttl=30)
 def lista_note(utente_id):
     sb = get_sb()
@@ -721,6 +766,7 @@ def elimina_nota(nota_id):
 
 # ── TEMPLATE OFFERTE ──────────────────────────────────
 
+@profila
 def lista_template(user_id):
     from supabase import create_client
     url = st.secrets["SUPABASE_URL"]
@@ -748,6 +794,7 @@ def lista_template(user_id):
     except:
         return []
 
+@profila
 @st.cache_data(ttl=60)
 def get_template(template_id):
     sb = get_sb()
@@ -833,6 +880,7 @@ def rimuovi_condivisione_template(template_id, utente_id):
 
 # ── EVENTI CATERING ───────────────────────────────────
 
+@profila
 @st.cache_data(ttl=30)
 def lista_eventi_catering(solo_nuovo=False):
     sb = get_sb()
@@ -850,6 +898,7 @@ def lista_eventi_catering(solo_nuovo=False):
     except:
         return []
 
+@profila
 @st.cache_data(ttl=30)
 def get_evento_catering(evento_id):
     sb = get_sb()
@@ -898,6 +947,7 @@ def aggiorna_evento_catering(evento_id, dati, user_id=None):
     except:
         pass
 
+@profila
 @st.cache_data(ttl=30)
 def lista_collaboratori_evento(evento_id):
     sb = get_sb()
@@ -948,6 +998,7 @@ def segna_collaboratore_avvisato(collab_id):
     except:
         pass
 
+@profila
 @st.cache_data(ttl=30)
 def lista_allegati_evento(evento_id):
     sb = get_sb()
@@ -993,6 +1044,7 @@ def scarica_allegato_evento(storage_path):
     except:
         return None
 
+@profila
 @st.cache_data(ttl=30)
 def lista_ore_evento(evento_id):
     sb = get_sb()
@@ -1016,6 +1068,7 @@ def inserisci_ore(dati):
     except:
         return None
 
+@profila
 @st.cache_data(ttl=30)
 def eventi_assegnati_a_utente(utente_id):
     sb = get_sb()
@@ -1029,6 +1082,7 @@ def eventi_assegnati_a_utente(utente_id):
 
 # ── INBOX EMAIL CONDIVISA ─────────────────────────────
 
+@profila
 def lista_inbox_nuove():
     sb = get_sb()
     try:
@@ -1041,6 +1095,7 @@ def lista_inbox_nuove():
     except:
         return []
 
+@profila
 def lista_inbox_storico():
     sb = get_sb()
     try:
@@ -1078,3 +1133,6 @@ def inserisci_email_inbox(mittente, oggetto, corpo):
         return None
     except Exception as e:
         return str(e)
+
+# ── COMPLEANNI ────────────────────────────────────────
+# (già definita sopra nella sezione CLIENTI)
