@@ -153,13 +153,7 @@ def _form_nuovo_cliente(utente):
             st.rerun()
 
     tipo = st.session_state.new_cliente_tipo
-    st.markdown(
-        f"<div style='background:#1a1a2e;color:white;border-radius:6px;"
-        f"padding:6px 14px;font-size:12px;font-weight:600;margin-bottom:12px;"
-        f"display:inline-block;'>"
-        f"{'Persona giuridica' if tipo == 'giuridica' else 'Persona fisica'}</div>",
-        unsafe_allow_html=True
-    )
+   
     st.markdown("---")
 
     with st.form("form_nuovo_cliente"):
