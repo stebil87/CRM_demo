@@ -19,14 +19,29 @@ COLORI_STATO = {
     "annullato":  "#888",
 }
 
+
 def is_event_manager(utente):
     return utente and utente["ruolo"] in ("admin", "event_manager")
+
+
+def _parse_orario(orario_str, default="00:00"):
+    """Parsa un orario in formato HH:MM, tollerante agli errori."""
+    if not orario_str:
+        orario_str = default
+    orario_str = orario_str.strip()
+    try:
+        return datetime.strptime(orario_str, "%H:%M").time()
+    except:
+        try:
+            return datetime.strptime(orario_str, "%H.%M").time()
+        except:
+            return datetime.strptime(default, "%H:%M").time()
+
 
 def pagina_eventi(utente):
     st.title("Eventi")
     st.markdown("---")
 
-    # Avvisi per event manager
     if is_event_manager(utente):
         nuovi = lista_eventi_catering(solo_nuovo=True)
         if nuovi:
@@ -67,7 +82,6 @@ def _lista_eventi(utente):
         nome_cliente = cliente.get("ragione_sociale") or \
             f"{cliente.get('nome','')} {cliente.get('cognome','')}".strip()
         data_str = (ev.get("data_inizio") or "")[:10]
-        offerta_info = ev.get("offerta") or {}
 
         label = (
             ev["titolo"] + "   |   " + nome_cliente +
@@ -90,7 +104,8 @@ def _scheda_evento(ev, utente, colore_stato):
         st.markdown(f"**Stato:** {ev.get('stato','—').upper()}")
         st.markdown(f"**Data inizio:** {(ev.get('data_inizio') or '')[:10]}")
         st.markdown(f"**Data fine:** {(ev.get('data_fine') or '')[:10]}")
-        st.markdown(f"**Orario:** {ev.get('orario_inizio','—')} — {ev.get('orario_fine','—')}")
+        st.markdown(
+            f"**Orario:** {ev.get('orario_inizio','—')} — {ev.get('orario_fine','—')}")
         st.markdown(f"**Luogo:** {ev.get('luogo','—')}")
     with col2:
         nome_cliente = cliente.get("ragione_sociale") or \
@@ -98,8 +113,12 @@ def _scheda_evento(ev, utente, colore_stato):
         st.markdown(f"**Cliente:** {nome_cliente}")
         st.markdown(f"**Email cliente:** {cliente.get('email','—')}")
         if offerta_info:
-            st.markdown(f"**Offerta:** {offerta_info.get('numero','—')} — {offerta_info.get('titolo','—')}")
-            st.markdown(f"**Importo:** {offerta_info.get('valuta','CHF')} {float(offerta_info.get('importo') or 0):,.2f}")
+            st.markdown(
+                f"**Offerta:** {offerta_info.get('numero','—')} — "
+                f"{offerta_info.get('titolo','—')}")
+            st.markdown(
+                f"**Importo:** {offerta_info.get('valuta','CHF')} "
+                f"{float(offerta_info.get('importo') or 0):,.2f}")
         nome_manager = f"{manager.get('nome','')} {manager.get('cognome','')}".strip()
         st.markdown(f"**Event Manager:** {nome_manager or '—'}")
 
@@ -108,10 +127,9 @@ def _scheda_evento(ev, utente, colore_stato):
 
     st.markdown("---")
 
-    # Tabs scheda evento
     tab_collab, tab_ore, tab_allegati, tab_beo, tab_modifica = st.tabs([
-    "Collaboratori", "Ore prestate", "Allegati", "BEO", "Modifica"
-])
+        "Collaboratori", "Ore prestate", "Allegati", "BEO", "Modifica"
+    ])
 
     with tab_collab:
         _gestione_collaboratori(ev, utente)
@@ -131,17 +149,17 @@ def _scheda_evento(ev, utente, colore_stato):
         else:
             st.info("Non hai i permessi per modificare questo evento.")
 
+
 def _tab_beo(ev, utente):
     st.markdown("**Banquet Event Order**")
     st.markdown("Compila i dettagli operativi e genera il documento ufficiale.")
     st.markdown("---")
 
-    from db import get_cliente, get_offerta, aggiorna_evento_catering
+    from db import get_offerta, aggiorna_evento_catering
 
     cliente = get_cliente(ev.get("cliente_id")) if ev.get("cliente_id") else {}
     offerta = get_offerta(ev.get("offerta_id")) if ev.get("offerta_id") else {}
 
-    # Campi aggiuntivi BEO
     col1, col2 = st.columns(2)
     with col1:
         coperti = st.number_input(
@@ -189,7 +207,6 @@ def _tab_beo(ev, utente):
             key=f"beo_servizio_{ev['id']}"
         )
 
-    # Timeline
     st.markdown("---")
     st.markdown("**Timeline operativa**")
     st.caption("Aggiungi le tappe della giornata in ordine cronologico.")
@@ -198,7 +215,6 @@ def _tab_beo(ev, utente):
     if state_key_tl not in st.session_state:
         tl = ev.get("timeline") or []
         if isinstance(tl, str):
-            import json
             try:
                 tl = json.loads(tl)
             except:
@@ -250,7 +266,9 @@ def _tab_beo(ev, utente):
     col_salva, col_genera = st.columns(2)
 
     with col_salva:
-        if st.button("Salva dati BEO", key=f"beo_salva_{ev['id']}", use_container_width=True):
+        if st.button(
+            "Salva dati BEO", key=f"beo_salva_{ev['id']}", use_container_width=True
+        ):
             aggiorna_evento_catering(ev["id"], {
                 "numero_coperti": coperti,
                 "referente_cliente_nome": referente_nome,
@@ -265,8 +283,9 @@ def _tab_beo(ev, utente):
             st.rerun()
 
     with col_genera:
-        if st.button("Genera PDF BEO", key=f"beo_gen_{ev['id']}", use_container_width=True):
-            # Salva prima i dati aggiornati
+        if st.button(
+            "Genera PDF BEO", key=f"beo_gen_{ev['id']}", use_container_width=True
+        ):
             aggiorna_evento_catering(ev["id"], {
                 "numero_coperti": coperti,
                 "referente_cliente_nome": referente_nome,
@@ -277,7 +296,6 @@ def _tab_beo(ev, utente):
                 "note_servizio": note_servizio,
                 "timeline": st.session_state[state_key_tl],
             })
-            # Ricarica evento aggiornato
             from db import get_evento_catering
             ev_aggiornato = get_evento_catering(ev["id"]) or ev
             ev_aggiornato["timeline"] = st.session_state[state_key_tl]
@@ -298,15 +316,16 @@ def _tab_beo(ev, utente):
                 st.success("BEO generato.")
 
 
-def _gestione_collaboratori(ev, utente, ):
+def _gestione_collaboratori(ev, utente):
     collaboratori = lista_collaboratori_evento(ev["id"])
 
     if collaboratori:
         st.markdown("**Collaboratori assegnati**")
         for c in collaboratori:
             u = c.get("utente") or {}
-            nome = f"{u.get('nome','')} {u.get('cognome','')}".strip() if u else c.get("nome_esterno","—")
-            email = u.get("email","") if u else c.get("email_esterno","")
+            nome = f"{u.get('nome','')} {u.get('cognome','')}".strip() \
+                if u else c.get("nome_esterno", "—")
+            email = u.get("email", "") if u else c.get("email_esterno", "")
             avvisato = "Avvisato" if c.get("avvisato") else "Non avvisato"
             ruolo = c.get("ruolo") or "—"
 
@@ -330,11 +349,15 @@ def _gestione_collaboratori(ev, utente, ):
             disponibili = [u for u in utenti if u["id"] not in ids_già]
             if disponibili:
                 with st.form(f"form_add_collab_int_{ev['id']}"):
-                    opzioni = {f"{u['nome']} {u['cognome']}": u["id"] for u in disponibili}
+                    opzioni = {
+                        f"{u['nome']} {u['cognome']}": u["id"]
+                        for u in disponibili
+                    }
                     sel = st.selectbox("Seleziona utente", list(opzioni.keys()))
                     ruolo = st.text_input("Ruolo/mansione")
                     if st.form_submit_button("Aggiungi", use_container_width=True):
-                        aggiungi_collaboratore(ev["id"], utente_id=opzioni[sel], ruolo=ruolo)
+                        aggiungi_collaboratore(
+                            ev["id"], utente_id=opzioni[sel], ruolo=ruolo)
                         st.rerun()
             else:
                 st.info("Tutti gli utenti sono già assegnati.")
@@ -356,25 +379,28 @@ def _gestione_collaboratori(ev, utente, ):
                         )
                         st.rerun()
 
-        # Avvisa tutti
         if collaboratori:
             st.markdown("---")
             non_avvisati = [c for c in collaboratori if not c.get("avvisato")]
             if non_avvisati:
-                if st.button("Avvisa tutti i collaboratori", key=f"avvisa_{ev['id']}"):
+                if st.button(
+                    "Avvisa tutti i collaboratori", key=f"avvisa_{ev['id']}"
+                ):
                     for c in non_avvisati:
                         segna_collaboratore_avvisato(c["id"])
-                        # Crea avviso interno nel session state
                         if c.get("utente_id"):
                             from db import invia_messaggio
                             invia_messaggio(
                                 utente["id"],
                                 c["utente_id"],
                                 f"Sei stato assegnato all'evento: {ev['titolo']}",
-                                f"Sei stato assegnato come collaboratore per l'evento '{ev['titolo']}' "
-                                f"in programma il {(ev.get('data_inizio') or '')[:10]} "
+                                f"Sei stato assegnato come collaboratore per "
+                                f"l'evento '{ev['titolo']}' "
+                                f"in programma il "
+                                f"{(ev.get('data_inizio') or '')[:10]} "
                                 f"presso {ev.get('luogo','—')}. "
-                                f"Ricordati di inserire le ore prestate entro 15 giorni dalla fine dell'evento."
+                                f"Ricordati di inserire le ore prestate entro "
+                                f"15 giorni dalla fine dell'evento."
                             )
                     st.success("Collaboratori avvisati.")
                     st.rerun()
@@ -388,7 +414,8 @@ def _gestione_ore(ev, utente):
         totale = 0.0
         for o in ore:
             u = o.get("utente") or {}
-            nome = f"{u.get('nome','')} {u.get('cognome','')}".strip() if u else o.get("nome_esterno","—")
+            nome = f"{u.get('nome','')} {u.get('cognome','')}".strip() \
+                if u else o.get("nome_esterno", "—")
             ore_tot = float(o.get("ore_totali") or 0)
             totale += ore_tot
             st.markdown(
@@ -399,13 +426,9 @@ def _gestione_ore(ev, utente):
         st.markdown(f"**Totale ore: {totale:.1f}h**")
         st.markdown("---")
 
-    # Form inserimento ore — visibile ai collaboratori assegnati
     collaboratori = lista_collaboratori_evento(ev["id"])
     ids_collab = [c.get("utente_id") for c in collaboratori if c.get("utente_id")]
-    può_inserire = (
-        utente["id"] in ids_collab or
-        is_event_manager(utente)
-    )
+    può_inserire = utente["id"] in ids_collab or is_event_manager(utente)
 
     if può_inserire:
         st.markdown("**Inserisci le tue ore**")
@@ -413,25 +436,25 @@ def _gestione_ore(ev, utente):
             col1, col2 = st.columns(2)
             with col1:
                 data_dal = st.date_input("Dal *", value=date.today())
-                orario_da = st.text_input("Orario inizio (es. 08:00)", placeholder="08:00")
+                orario_da = st.text_input(
+                    "Orario inizio (es. 08:00)", placeholder="08:00")
             with col2:
                 data_al = st.date_input("Al *", value=date.today())
-                orario_a = st.text_input("Orario fine (es. 18:00)", placeholder="18:00")
+                orario_a = st.text_input(
+                    "Orario fine (es. 18:00)", placeholder="18:00")
             note = st.text_input("Note (opzionale)")
             if st.form_submit_button("Salva ore", use_container_width=True):
                 if not orario_da or not orario_a:
                     st.error("Inserisci orario inizio e fine.")
                 else:
                     try:
-                        from datetime import datetime as dt
                         giorni = (data_al - data_dal).days + 1
-                        h_inizio = dt.strptime(orario_da, "%H:%M")
-                        h_fine = dt.strptime(orario_a, "%H:%M")
+                        h_inizio = datetime.strptime(orario_da, "%H:%M")
+                        h_fine = datetime.strptime(orario_a, "%H:%M")
                         ore_giorno = (h_fine - h_inizio).seconds / 3600
                         ore_tot = round(giorni * ore_giorno, 2)
                     except:
                         ore_tot = 0
-
                     inserisci_ore({
                         "evento_id": ev["id"],
                         "utente_id": utente["id"],
@@ -464,7 +487,7 @@ def _gestione_allegati(ev, utente):
                             label="Clicca per scaricare",
                             data=contenuto,
                             file_name=a["nome_file"],
-                            mime=a.get("tipo_file","application/octet-stream"),
+                            mime=a.get("tipo_file", "application/octet-stream"),
                             key=f"dl_all_{a['id']}"
                         )
     else:
@@ -474,7 +497,7 @@ def _gestione_allegati(ev, utente):
         st.markdown("---")
         file = st.file_uploader(
             "Carica allegato",
-            type=["pdf","jpg","jpeg","png","doc","docx","xls","xlsx","txt"],
+            type=["pdf", "jpg", "jpeg", "png", "doc", "docx", "xls", "xlsx", "txt"],
             key=f"upload_ev_{ev['id']}"
         )
         if file and st.button("Carica", key=f"btn_upload_ev_{ev['id']}"):
@@ -493,13 +516,14 @@ def _gestione_allegati(ev, utente):
 def _form_nuovo_evento(utente):
     st.subheader("Nuovo evento")
 
-    from db import lista_clienti, lista_offerte as db_lista_offerte
+    from db import lista_clienti
     clienti = lista_clienti()
     managers = utenti_event_manager()
 
     opzioni_clienti = {"— Seleziona cliente —": None}
     for c in clienti:
-        nome = c.get("ragione_sociale") or f"{c.get('nome','')} {c.get('cognome','')}".strip()
+        nome = c.get("ragione_sociale") or \
+            f"{c.get('nome','')} {c.get('cognome','')}".strip()
         opzioni_clienti[nome] = c["id"]
 
     opzioni_managers = {"— Nessun event manager —": None}
@@ -513,11 +537,14 @@ def _form_nuovo_evento(utente):
             cliente_sel = st.selectbox("Cliente", list(opzioni_clienti.keys()))
             luogo = st.text_input("Luogo")
             data_inizio = st.date_input("Data inizio *", value=date.today())
-            orario_inizio = st.text_input("Orario inizio (es. 10:00)", placeholder="10:00")
+            orario_inizio = st.text_input(
+                "Orario inizio (es. 10:00)", placeholder="10:00")
         with col2:
-            manager_sel = st.selectbox("Event Manager", list(opzioni_managers.keys()))
+            manager_sel = st.selectbox(
+                "Event Manager", list(opzioni_managers.keys()))
             data_fine = st.date_input("Data fine *", value=date.today())
-            orario_fine = st.text_input("Orario fine (es. 22:00)", placeholder="22:00")
+            orario_fine = st.text_input(
+                "Orario fine (es. 22:00)", placeholder="22:00")
         note = st.text_area("Note")
         submitted = st.form_submit_button("Crea evento", use_container_width=True)
 
@@ -529,8 +556,12 @@ def _form_nuovo_evento(utente):
                 "titolo": titolo,
                 "cliente_id": opzioni_clienti[cliente_sel],
                 "luogo": luogo,
-                "data_inizio": datetime.combine(data_inizio, datetime.strptime(orario_inizio or "00:00", "%H:%M").time()).isoformat() if orario_inizio else data_inizio.isoformat(),
-                "data_fine": datetime.combine(data_fine, datetime.strptime(orario_fine or "23:59", "%H:%M").time()).isoformat() if orario_fine else data_fine.isoformat(),
+                "data_inizio": datetime.combine(
+                    data_inizio, _parse_orario(orario_inizio, "00:00")
+                ).isoformat(),
+                "data_fine": datetime.combine(
+                    data_fine, _parse_orario(orario_fine, "23:59")
+                ).isoformat(),
                 "orario_inizio": orario_inizio,
                 "orario_fine": orario_fine,
                 "note": note,
@@ -539,15 +570,15 @@ def _form_nuovo_evento(utente):
             }, utente["id"])
             if nuovo:
                 st.success("Evento creato.")
-                # Avvisa event manager
                 if opzioni_managers[manager_sel]:
                     from db import invia_messaggio
                     invia_messaggio(
                         utente["id"],
                         opzioni_managers[manager_sel],
                         f"Nuovo evento da gestire: {titolo}",
-                        f"È stato creato un nuovo evento '{titolo}' che richiede la tua gestione. "
-                        f"Accedi alla sezione Eventi per assegnare i collaboratori."
+                        f"È stato creato un nuovo evento '{titolo}' che richiede "
+                        f"la tua gestione. Accedi alla sezione Eventi per assegnare "
+                        f"i collaboratori."
                     )
                 st.rerun()
 
@@ -568,24 +599,36 @@ def _form_modifica_evento(ev, utente):
         titolo = st.text_input("Titolo *", value=ev["titolo"])
         col1, col2 = st.columns(2)
         with col1:
-            luogo = st.text_input("Luogo", value=ev.get("luogo",""))
+            luogo = st.text_input("Luogo", value=ev.get("luogo", ""))
             try:
-                di = datetime.fromisoformat(ev["data_inizio"].replace("Z","")).date() if ev.get("data_inizio") else date.today()
+                di = datetime.fromisoformat(
+                    ev["data_inizio"].replace("Z", "")
+                ).date() if ev.get("data_inizio") else date.today()
             except:
                 di = date.today()
             data_inizio = st.date_input("Data inizio", value=di)
-            orario_inizio = st.text_input("Orario inizio", value=ev.get("orario_inizio",""))
+            orario_inizio = st.text_input(
+                "Orario inizio", value=ev.get("orario_inizio", ""))
         with col2:
-            stato = st.selectbox("Stato", STATI,
-                index=STATI.index(ev.get("stato","nuovo")) if ev.get("stato") in STATI else 0)
+            stato = st.selectbox(
+                "Stato", STATI,
+                index=STATI.index(ev.get("stato", "nuovo"))
+                if ev.get("stato") in STATI else 0
+            )
             try:
-                df = datetime.fromisoformat(ev["data_fine"].replace("Z","")).date() if ev.get("data_fine") else date.today()
+                df = datetime.fromisoformat(
+                    ev["data_fine"].replace("Z", "")
+                ).date() if ev.get("data_fine") else date.today()
             except:
                 df = date.today()
             data_fine = st.date_input("Data fine", value=df)
-            orario_fine = st.text_input("Orario fine", value=ev.get("orario_fine",""))
-        manager_sel = st.selectbox("Event Manager", list(opzioni_managers.keys()), index=default_manager)
-        note = st.text_area("Note", value=ev.get("note",""))
+            orario_fine = st.text_input(
+                "Orario fine", value=ev.get("orario_fine", ""))
+        manager_sel = st.selectbox(
+            "Event Manager", list(opzioni_managers.keys()),
+            index=default_manager
+        )
+        note = st.text_area("Note", value=ev.get("note", ""))
         col1, col2 = st.columns(2)
         with col1:
             salva = st.form_submit_button("Salva", use_container_width=True)
@@ -596,8 +639,12 @@ def _form_modifica_evento(ev, utente):
         aggiorna_evento_catering(ev["id"], {
             "titolo": titolo,
             "luogo": luogo,
-            "data_inizio": data_inizio.isoformat(),
-            "data_fine": data_fine.isoformat(),
+            "data_inizio": datetime.combine(
+                data_inizio, _parse_orario(orario_inizio, "00:00")
+            ).isoformat(),
+            "data_fine": datetime.combine(
+                data_fine, _parse_orario(orario_fine, "23:59")
+            ).isoformat(),
             "orario_inizio": orario_inizio,
             "orario_fine": orario_fine,
             "stato": stato,
@@ -609,7 +656,6 @@ def _form_modifica_evento(ev, utente):
 
 
 def widget_avvisi_eventi(utente):
-    """Widget da mostrare in dashboard per collaboratori."""
     from db import eventi_assegnati_a_utente
     assegnazioni = eventi_assegnati_a_utente(utente["id"])
     if not assegnazioni:
@@ -621,11 +667,12 @@ def widget_avvisi_eventi(utente):
         ev = a.get("evento") or {}
         if not ev:
             continue
-        data_fine_str = ev.get("data_fine","")
+        data_fine_str = ev.get("data_fine", "")
         try:
-            data_fine = datetime.fromisoformat(data_fine_str.replace("Z","")).date()
+            data_fine = datetime.fromisoformat(
+                data_fine_str.replace("Z", "")).date()
             scadenza = data_fine + timedelta(days=15)
-            if oggi <= scadenza and ev.get("stato") not in ("completato","annullato"):
+            if oggi <= scadenza and ev.get("stato") not in ("completato", "annullato"):
                 da_completare.append((a, ev, scadenza))
         except:
             pass
@@ -641,7 +688,8 @@ def widget_avvisi_eventi(utente):
             "<div style='background:white;border:1px solid #eaeaf0;"
             "border-left:4px solid " + colore + ";border-radius:8px;"
             "padding:10px 14px;margin-bottom:8px;'>"
-            "<div style='font-size:13px;font-weight:600;'>" + ev.get("titolo","—") + "</div>"
+            "<div style='font-size:13px;font-weight:600;'>"
+            + ev.get("titolo", "—") + "</div>"
             "<div style='font-size:11px;color:#888;margin-top:3px;'>"
             "Inserisci le ore entro il " + scadenza.isoformat() +
             " (" + str(giorni_rimasti) + " giorni)</div>"
