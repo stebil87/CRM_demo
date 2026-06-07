@@ -357,23 +357,27 @@ if not utente:
         .block-container {
             padding-top: 4rem !important;
         }
-        /* Input scuri */
+        /* Input login */
         .stTextInput > div > div > input,
         .stTextInput > div > div > input:focus,
-        .stTextInput > div > div > input:active,
-        [data-testid="stAppViewContainer"] .stTextInput > div > div > input,
-        [data-testid="stAppViewContainer"] .stTextInput > div > div > input:focus {
-            background: rgba(255,255,255,0.08) !important;
-            border: 1px solid rgba(255,255,255,0.2) !important;
+        .stTextInput > div > div > input:active {
+            background: rgba(255,255,255,0.85) !important;
+            border: none !important;
             border-radius: 8px !important;
-            color: white !important;
-            -webkit-text-fill-color: white !important;
-            caret-color: white !important;
+            color: #1a1a2e !important;
+            -webkit-text-fill-color: #1a1a2e !important;
+            caret-color: #1a1a2e !important;
             box-shadow: none !important;
         }
+        .stTextInput > div > div > input:-webkit-autofill,
+        .stTextInput > div > div > input:-webkit-autofill:hover,
+        .stTextInput > div > div > input:-webkit-autofill:focus {
+            -webkit-box-shadow: 0 0 0 30px rgba(255,255,255,0.85) inset !important;
+            -webkit-text-fill-color: #1a1a2e !important;
+        }
         .stTextInput > div > div > input::placeholder {
-            color: rgba(255,255,255,0.3) !important;
-            -webkit-text-fill-color: rgba(255,255,255,0.3) !important;
+            color: rgba(26,26,46,0.4) !important;
+            -webkit-text-fill-color: rgba(26,26,46,0.4) !important;
         }
         /* Label input */
         .stTextInput label {
