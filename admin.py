@@ -1,6 +1,7 @@
+# admin.py
 import streamlit as st
 from datetime import datetime
-from db import lista_utenti, aggiorna_ruolo_utente, disattiva_utente, get_sb
+from db import lista_utenti, aggiorna_ruolo_utente, disattiva_utente, get_sb, get_impostazione, set_impostazione
 from auth import is_admin
 
 RUOLI = ["visualizza", "modifica", "admin", "event_manager"]
@@ -14,8 +15,8 @@ def pagina_admin(utente):
     st.title("Amministrazione")
     st.markdown("---")
 
-    tab_utenti, tab_nuovo, tab_log = st.tabs([
-        "Gestione utenti", "Nuovo utente", "Activity Log"
+    tab_utenti, tab_nuovo, tab_impostazioni, tab_log = st.tabs([
+        "Gestione utenti", "Nuovo utente", "Impostazioni", "Activity Log"
     ])
 
     with tab_utenti:
@@ -23,6 +24,9 @@ def pagina_admin(utente):
 
     with tab_nuovo:
         _tab_nuovo_utente()
+
+    with tab_impostazioni:
+        _tab_impostazioni()
 
     with tab_log:
         _tab_log()
@@ -99,7 +103,6 @@ def _tab_nuovo_utente():
             return
 
         try:
-            # Usa service role key per creare utenti
             sb = get_sb()
             res = sb.auth.admin.create_user({
                 "email": email,
@@ -127,6 +130,70 @@ def _tab_nuovo_utente():
             st.error(f"Errore: {str(e)}")
 
 
+def _tab_impostazioni():
+    st.subheader("Impostazioni generali")
+    st.markdown("---")
+
+    # ── OBIETTIVO FATTURATO ──
+    st.markdown("**Obiettivo fatturato annuo**")
+    st.caption(
+        "Imposta l'obiettivo di fatturato per l'anno corrente. "
+        "Appare nella dashboard come barra di avanzamento."
+    )
+
+    try:
+        val_attuale = float(get_impostazione("obiettivo_fatturato_annuo", "0"))
+    except:
+        val_attuale = 0.0
+
+    anno_corrente = datetime.now().year
+
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        nuovo_obiettivo = st.number_input(
+            f"Obiettivo CHF {anno_corrente}",
+            min_value=0.0,
+            value=val_attuale,
+            step=10000.0,
+            format="%.0f",
+            help="Inserisci 0 per disattivare il contatore"
+        )
+    with col2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Salva obiettivo", key="salva_obiettivo",
+                     use_container_width=True):
+            set_impostazione("obiettivo_fatturato_annuo", str(nuovo_obiettivo))
+            st.success(
+                f"Obiettivo impostato a CHF {nuovo_obiettivo:,.0f}"
+                if nuovo_obiettivo > 0 else "Obiettivo disattivato."
+            )
+            st.rerun()
+
+    if val_attuale > 0:
+        st.markdown(
+            f"<div style='background:#f4f4f8;border-radius:8px;"
+            f"padding:12px 16px;font-size:13px;color:#555;margin-top:8px;'>"
+            f"Obiettivo attuale: <strong>CHF {val_attuale:,.0f}</strong> "
+            f"per l'anno {anno_corrente}</div>",
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            "<div style='background:#fff3cd;border-radius:8px;"
+            "padding:12px 16px;font-size:13px;color:#856404;margin-top:8px;'>"
+            "Nessun obiettivo impostato — la barra di avanzamento "
+            "non verrà mostrata in dashboard.</div>",
+            unsafe_allow_html=True
+        )
+
+    st.markdown("---")
+
+    # ── ALTRE IMPOSTAZIONI FUTURE ──
+    st.markdown("**Altre impostazioni**")
+    st.caption("Ulteriori impostazioni di sistema appariranno qui.")
+    st.info("Sezione in sviluppo.")
+
+
 def _tab_log():
     st.subheader("Activity Log")
     st.caption("Tutte le operazioni registrate sulla piattaforma — ultimi 200 eventi.")
@@ -146,7 +213,6 @@ def _tab_log():
         st.info("Nessuna attività registrata.")
         return
 
-    # Filtri
     col1, col2, col3 = st.columns(3)
     with col1:
         filtro_entita = st.selectbox(
