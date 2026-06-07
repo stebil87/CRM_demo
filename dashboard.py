@@ -204,11 +204,90 @@ def pagina_dashboard(utente):
         chiuse = len(offerte_df[offerte_df["stato"] == "accettata"])
         tasso_chiusura = round((chiuse / tot) * 100) if tot > 0 else 0
 
-    # ── KPI ──
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Clienti totali", stats["tot_clienti"])
-    col2.metric("Chiuso", f"CHF {valore_chiuso:,.0f}")
-    col3.metric("Tasso chiusura", f"{tasso_chiusura}%")
+    # ── KPI OPERATIVI ──
+    kpi = kpi_operativi()
+    prossimo = kpi["prossimo_evento"]
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.markdown(
+            "<div style='background:white;border:1px solid #eaeaf0;"
+            "border-top:4px solid #1a1a2e;border-radius:10px;"
+            "padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);'>"
+            "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
+            "letter-spacing:0.8px;color:#888;margin-bottom:8px;'>Eventi prossimi 30gg</div>"
+            f"<div style='font-size:32px;font-weight:700;color:#1a1a2e;'>{kpi['n_eventi_30gg']}</div>"
+            "<div style='font-size:11px;color:#aaa;margin-top:4px;'>eventi in programma</div>"
+            "</div>",
+            unsafe_allow_html=True
+        )
+
+    with col2:
+        st.markdown(
+            "<div style='background:white;border:1px solid #eaeaf0;"
+            "border-top:4px solid #533483;border-radius:10px;"
+            "padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);'>"
+            "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
+            "letter-spacing:0.8px;color:#888;margin-bottom:8px;'>Offerte in attesa</div>"
+            f"<div style='font-size:32px;font-weight:700;color:#1a1a2e;'>{kpi['n_attesa']}</div>"
+            "<div style='font-size:11px;color:#aaa;margin-top:4px;'>in attesa di risposta</div>"
+            "</div>",
+            unsafe_allow_html=True
+        )
+
+    with col3:
+        st.markdown(
+            "<div style='background:white;border:1px solid #eaeaf0;"
+            "border-top:4px solid #0f3460;border-radius:10px;"
+            "padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);'>"
+            "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
+            "letter-spacing:0.8px;color:#888;margin-bottom:8px;'>Valore pipeline</div>"
+            f"<div style='font-size:32px;font-weight:700;color:#1a1a2e;'>"
+            f"CHF {kpi['valore_pipeline']:,.0f}</div>"
+            "<div style='font-size:11px;color:#aaa;margin-top:4px;'>offerte inviate non chiuse</div>"
+            "</div>",
+            unsafe_allow_html=True
+        )
+
+    with col4:
+        if prossimo:
+            try:
+                from datetime import datetime
+                dt = datetime.fromisoformat(
+                    prossimo["data_inizio"].replace("Z", "")
+                )
+                data_str = dt.strftime("%d/%m/%Y")
+                ora_str = dt.strftime("%H:%M")
+            except:
+                data_str = (prossimo.get("data_inizio") or "")[:10]
+                ora_str = ""
+            st.markdown(
+                "<div style='background:white;border:1px solid #eaeaf0;"
+                "border-top:4px solid #e94560;border-radius:10px;"
+                "padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);'>"
+                "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
+                "letter-spacing:0.8px;color:#888;margin-bottom:8px;'>Prossimo evento</div>"
+                f"<div style='font-size:16px;font-weight:700;color:#1a1a2e;"
+                f"line-height:1.3;'>{prossimo['titolo']}</div>"
+                f"<div style='font-size:12px;color:#e94560;margin-top:6px;font-weight:600;'>"
+                f"{data_str}"
+                + (f" · {ora_str}" if ora_str and ora_str != "00:00" else "") +
+                "</div>"
+                "</div>",
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                "<div style='background:white;border:1px solid #eaeaf0;"
+                "border-top:4px solid #e94560;border-radius:10px;"
+                "padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);'>"
+                "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
+                "letter-spacing:0.8px;color:#888;margin-bottom:8px;'>Prossimo evento</div>"
+                "<div style='font-size:14px;color:#aaa;'>Nessun evento in programma</div>"
+                "</div>",
+                unsafe_allow_html=True
+            )
 
     st.markdown("---")
 
