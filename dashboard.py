@@ -1,3 +1,4 @@
+# dashboard.py
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
@@ -8,7 +9,7 @@ from db import (
     stats_dashboard, followup_oggi, followup_prossimi7,
     eventi_oggi_multi, get_calendari_visibili,
     lista_eventi_catering, lista_messaggi_non_letti,
-    compleanni_in_arrivo
+    compleanni_in_arrivo, get_impostazione
 )
 from auth import can_edit
 
@@ -173,11 +174,80 @@ def _widget_messaggi(utente):
         st.rerun()
 
 
+def _card_obiettivo(fatturato_chiuso: float):
+    """Card fatturato chiuso + obiettivo annuo con barra progresso."""
+    try:
+        obiettivo = float(get_impostazione("obiettivo_fatturato_annuo", "0"))
+    except:
+        obiettivo = 0
+
+    if obiettivo <= 0:
+        # Nessun obiettivo impostato — mostra solo fatturato
+        return st.markdown(
+            "<div style='background:white;border:1px solid #eaeaf0;"
+            "border-top:4px solid #2d6a4f;border-radius:10px;"
+            "padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);'>"
+            "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
+            "letter-spacing:0.8px;color:#888;margin-bottom:8px;'>Fatturato chiuso</div>"
+            f"<div style='font-size:28px;font-weight:700;color:#1a1a2e;'>"
+            f"CHF {fatturato_chiuso:,.0f}</div>"
+            "<div style='font-size:11px;color:#aaa;margin-top:4px;'>offerte accettate</div>"
+            "</div>",
+            unsafe_allow_html=True
+        )
+
+    perc = min(fatturato_chiuso / obiettivo * 100, 100)
+    mancante = max(obiettivo - fatturato_chiuso, 0)
+    superato = max(fatturato_chiuso - obiettivo, 0)
+    superato_perc = max((fatturato_chiuso - obiettivo) / obiettivo * 100, 0)
+
+    # Colore barra in base alla percentuale
+    if perc >= 100:
+        colore_barra = "#2d6a4f"
+        colore_testo = "#2d6a4f"
+        label_stato = f"+CHF {superato:,.0f} ({superato_perc:.0f}% oltre obiettivo!)"
+    elif perc >= 75:
+        colore_barra = "#0f3460"
+        colore_testo = "#0f3460"
+        label_stato = f"Mancano CHF {mancante:,.0f} ({100-perc:.0f}%)"
+    elif perc >= 50:
+        colore_barra = "#856404"
+        colore_testo = "#856404"
+        label_stato = f"Mancano CHF {mancante:,.0f} ({100-perc:.0f}%)"
+    else:
+        colore_barra = "#e94560"
+        colore_testo = "#e94560"
+        label_stato = f"Mancano CHF {mancante:,.0f} ({100-perc:.0f}%)"
+
+    st.markdown(
+        f"<div style='background:white;border:1px solid #eaeaf0;"
+        f"border-top:4px solid #2d6a4f;border-radius:10px;"
+        f"padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);'>"
+        f"<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
+        f"letter-spacing:0.8px;color:#888;margin-bottom:8px;'>Fatturato chiuso</div>"
+        f"<div style='font-size:26px;font-weight:700;color:#1a1a2e;'>"
+        f"CHF {fatturato_chiuso:,.0f}</div>"
+        f"<div style='font-size:10px;color:#aaa;margin-top:2px;margin-bottom:10px;'>"
+        f"su obiettivo CHF {obiettivo:,.0f}</div>"
+        f"<div style='background:#eaeaf0;border-radius:4px;height:6px;margin-bottom:6px;'>"
+        f"<div style='background:{colore_barra};border-radius:4px;height:6px;"
+        f"width:{perc:.1f}%;transition:width 0.5s;'></div>"
+        f"</div>"
+        f"<div style='display:flex;justify-content:space-between;align-items:center;'>"
+        f"<span style='font-size:10px;color:{colore_testo};font-weight:600;'>"
+        f"{label_stato}</span>"
+        f"<span style='font-size:11px;font-weight:700;color:{colore_barra};'>"
+        f"{perc:.0f}%</span>"
+        f"</div>"
+        f"</div>",
+        unsafe_allow_html=True
+    )
+
+
 def pagina_dashboard(utente):
     st.title("Dashboard")
     _saluto(utente)
 
-    # Una sola chiamata — tutto unificato
     stats = stats_dashboard()
     oggi_fu = followup_oggi()
     prossimi_fu = followup_prossimi7()
@@ -209,18 +279,7 @@ def pagina_dashboard(utente):
         )
 
     with col2:
-        st.markdown(
-            "<div style='background:white;border:1px solid #eaeaf0;"
-            "border-top:4px solid #2d6a4f;border-radius:10px;"
-            "padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);'>"
-            "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
-            "letter-spacing:0.8px;color:#888;margin-bottom:8px;'>Fatturato chiuso</div>"
-            f"<div style='font-size:28px;font-weight:700;color:#1a1a2e;'>"
-            f"CHF {stats['fatturato_chiuso']:,.0f}</div>"
-            "<div style='font-size:11px;color:#aaa;margin-top:4px;'>offerte accettate</div>"
-            "</div>",
-            unsafe_allow_html=True
-        )
+        _card_obiettivo(stats["fatturato_chiuso"])
 
     with col3:
         st.markdown(
@@ -625,6 +684,11 @@ def pagina_dashboard(utente):
 
             with col4:
                 st.markdown("**Riepilogo**")
+                try:
+                    obiettivo = float(get_impostazione(
+                        "obiettivo_fatturato_annuo", "0"))
+                except:
+                    obiettivo = 0
                 riepilogo = {
                     "Clienti prospect": len(clienti_df[clienti_df["stato"] == "prospect"]) if not clienti_df.empty and "stato" in clienti_df.columns else 0,
                     "Clienti attivi": len(clienti_df[clienti_df["stato"] == "attivo"]) if not clienti_df.empty and "stato" in clienti_df.columns else 0,
@@ -632,6 +696,7 @@ def pagina_dashboard(utente):
                     "Offerte vinte": len(offerte_df[offerte_df["stato"] == "accettata"]) if not offerte_df.empty and "stato" in offerte_df.columns else 0,
                     "Offerte perse": len(offerte_df[offerte_df["stato"] == "rifiutata"]) if not offerte_df.empty and "stato" in offerte_df.columns else 0,
                     "Fatturato chiuso": f"CHF {stats['fatturato_chiuso']:,.0f}",
+                    "Obiettivo annuo": f"CHF {obiettivo:,.0f}" if obiettivo > 0 else "Non impostato",
                     "Tasso chiusura": f"{stats['tasso_chiusura']}%",
                 }
                 for k, v in riepilogo.items():
