@@ -102,6 +102,11 @@ section[data-testid="stSidebar"] .streamlit-expanderContent {
     max-width: 1400px;
 }
 
+.main > div:first-child {
+    padding-top: 0 !important;
+    margin-top: -2rem !important;
+}
+
 h1 {
     font-size: 22px !important;
     font-weight: 600 !important;
