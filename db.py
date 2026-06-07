@@ -493,27 +493,38 @@ def elimina_documento(doc_id, storage_path, user_id=None):
 @st.cache_data(ttl=60)
 @profila
 def stats_dashboard():
-    sb = get_sb()
-    try:
+    import concurrent.futures
+
+    def q_clienti():
+        sb = get_sb()
+        return sb.table("clienti").select("stato, paese").execute()
+
+    def q_offerte():
+        sb = get_sb()
+        return sb.table("offerte").select("stato, importo").execute()
+
+    def q_eventi():
+        sb = get_sb()
         oggi = date.today().isoformat()
         tra30 = (date.today() + timedelta(days=30)).isoformat()
-
-        # Query 1 — clienti
-        clienti = sb.table("clienti").select("stato, paese").execute()
-
-        # Query 2 — offerte
-        offerte = sb.table("offerte").select("stato, importo").execute()
-        offerte_data = offerte.data or []
-
-        # Query 3 — eventi prossimi 30gg
-        ev = sb.table("eventi_catering").select(
+        return sb.table("eventi_catering").select(
             "id, titolo, data_inizio, stato"
         ).gte("data_inizio", oggi).lte(
             "data_inizio", tra30 + "T23:59:59"
         ).not_.in_("stato", ["annullato"]).order("data_inizio").execute()
-        eventi_data = ev.data or []
 
-        # Calcoli offerte
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
+            f_clienti = ex.submit(q_clienti)
+            f_offerte = ex.submit(q_offerte)
+            f_eventi = ex.submit(q_eventi)
+            clienti = f_clienti.result(timeout=5)
+            offerte = f_offerte.result(timeout=5)
+            eventi = f_eventi.result(timeout=5)
+
+        offerte_data = offerte.data or []
+        eventi_data = eventi.data or []
+
         in_attesa = [o for o in offerte_data if o.get("stato") == "inviata"]
         accettate = [o for o in offerte_data if o.get("stato") == "accettata"]
         chiuse_neg = [o for o in offerte_data
@@ -521,11 +532,9 @@ def stats_dashboard():
         tot_chiuse = len(accettate) + len(chiuse_neg)
 
         return {
-            # Per grafici
             "tot_clienti": len(clienti.data) if clienti.data else 0,
             "clienti_data": clienti.data or [],
             "offerte_data": offerte_data,
-            # KPI operativi
             "n_attesa": len(in_attesa),
             "valore_pipeline": sum(
                 float(o.get("importo") or 0) for o in in_attesa),
@@ -543,7 +552,6 @@ def stats_dashboard():
             "n_attesa": 0, "valore_pipeline": 0, "fatturato_chiuso": 0,
             "tasso_chiusura": 0, "n_eventi_30gg": 0, "prossimo_evento": None,
         }
-
 # ── MESSAGGI ──────────────────────────────────────────
 
 @st.cache_data(ttl=15)
