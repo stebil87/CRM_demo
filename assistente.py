@@ -105,21 +105,22 @@ def classifica_intent(testo: str, intent_clf) -> tuple[str, float]:
 
 
 def _classifica_regex(testo: str) -> tuple[str, float]:
-    """Fallback regex se il modello non è disponibile."""
+    """Fallback regex con scoring — vince chi ha più match."""
     t = testo.lower()
 
     patterns = {
         "crea_appuntamento": [
             r"appuntamento", r"riunione", r"meeting", r"incontro",
-            r"calendario", r"agenda", r"prenotare", r"fissa"
+            r"calendario", r"agenda", r"fissa", r"metti.*calendario",
+            r"crea.*calendario", r"segna.*calendario"
         ],
         "invia_messaggio": [
             r"messaggio", r"scrivi a", r"manda", r"contatta",
-            r"notifica", r"avvisa"
+            r"notifica", r"avvisa", r"di.*a\s+\w+"
         ],
         "cerca_cliente": [
-            r"cerca", r"trova", r"chi è", r"info su", r"dettagli",
-            r"cliente", r"contatto"
+            r"^cerca\b", r"^trova\b", r"chi è\b", r"info su\b",
+            r"dettagli su\b", r"dammi info", r"dimmi di"
         ],
         "crea_cliente": [
             r"nuovo cliente", r"aggiungi cliente", r"crea cliente",
@@ -129,38 +130,59 @@ def _classifica_regex(testo: str) -> tuple[str, float]:
             r"offerta", r"preventivo", r"proposta commerciale", r"quotazione"
         ],
         "mostra_followup": [
-            r"follow.?up", r"richiamare", r"cosa devo fare", r"promemoria",
-            r"scadenze", r"da fare"
+            r"follow.?up", r"cosa devo fare", r"promemoria",
+            r"scadenze", r"da fare oggi", r"richiamare"
         ],
         "crea_evento": [
-            r"evento catering", r"catering", r"banchetto", r"ricevimento",
-            r"nuovo evento"
+            r"evento catering", r"catering", r"banchetto",
+            r"ricevimento", r"nuovo evento"
         ],
         "mostra_eventi": [
-            r"eventi", r"in programma", r"prossimi eventi", r"calendario eventi"
+            r"eventi in programma", r"prossimi eventi",
+            r"lista eventi", r"che eventi"
         ],
         "registra_contatto": [
-            r"ho chiamato", r"ho parlato", r"ho incontrato", r"diario",
-            r"registra", r"nota conversazione", r"ho sentito"
+            r"ho chiamato", r"ho parlato", r"ho incontrato",
+            r"diario", r"registra contatto", r"ho sentito"
         ],
         "mostra_messaggi": [
-            r"messaggi", r"non letti", r"posta", r"inbox"
+            r"messaggi non letti", r"posta", r"inbox",
+            r"ho messaggi", r"nuovi messaggi"
         ],
         "crea_nota": [
-            r"nota", r"appunto", r"ricordami", r"segna", r"post.?it"
+            r"nota:", r"appunto:", r"ricordami", r"segna questo",
+            r"post.?it", r"nota rapida"
         ],
         "saluto": [
-            r"ciao", r"buongiorno", r"buonasera", r"aiuto", r"help",
-            r"cosa puoi fare", r"come funzioni"
+            r"^ciao\b", r"^buongiorno\b", r"^buonasera\b",
+            r"cosa puoi fare", r"come funzioni", r"^help\b", r"^aiuto\b"
+        ],
+        "mostra_followup": [
+            r"follow.?up", r"scadenze oggi", r"cosa devo fare oggi"
+        ],
+        "domanda_generica": [
+            r"quanti clienti", r"quante offerte", r"statistiche",
+            r"riepilogo", r"dashboard"
         ],
     }
+
+    scores = {intent: 0 for intent in patterns}
 
     for intent, pats in patterns.items():
         for pat in pats:
             if re.search(pat, t):
-                return intent, 0.8
+                scores[intent] += 1
 
-    return "domanda_generica", 0.5
+    # Vince chi ha più match
+    best_intent = max(scores, key=lambda k: scores[k])
+    best_score = scores[best_intent]
+
+    if best_score == 0:
+        return "domanda_generica", 0.4
+
+    # Normalizza score
+    confidence = min(0.5 + best_score * 0.15, 0.95)
+    return best_intent, confidence
 
 
 # ── ENTITY EXTRACTION ─────────────────────────────────
