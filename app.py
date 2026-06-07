@@ -87,7 +87,7 @@ section[data-testid="stSidebar"] .streamlit-expanderContent {
 }
 
 .main .block-container {
-    padding: 2rem 2.5rem;
+    padding: 0.5rem 2.5rem 2rem 2.5rem;
     max-width: 1400px;
 }
 
