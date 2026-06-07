@@ -25,7 +25,6 @@ def is_event_manager(utente):
 
 
 def _parse_orario(orario_str, default="00:00"):
-    """Parsa un orario in formato HH:MM, tollerante agli errori."""
     if not orario_str:
         orario_str = default
     orario_str = orario_str.strip()
@@ -459,6 +458,7 @@ def _gestione_ore(ev, utente):
                         "evento_id": ev["id"],
                         "utente_id": utente["id"],
                         "data_dal": data_dal.isoformat(),
+                        "data_dal": data_dal.isoformat(),
                         "data_al": data_al.isoformat(),
                         "orario_da": orario_da,
                         "orario_a": orario_a,
@@ -516,7 +516,7 @@ def _gestione_allegati(ev, utente):
 def _form_nuovo_evento(utente):
     st.subheader("Nuovo evento")
 
-    from db import lista_clienti
+    from db import lista_clienti, crea_evento
     clienti = lista_clienti()
     managers = utenti_event_manager()
 
@@ -552,24 +552,45 @@ def _form_nuovo_evento(utente):
         if not titolo:
             st.error("Il titolo è obbligatorio.")
         else:
+            dt_inizio = datetime.combine(
+                data_inizio, _parse_orario(orario_inizio, "00:00"))
+            dt_fine = datetime.combine(
+                data_fine, _parse_orario(orario_fine, "23:59"))
+
             nuovo = crea_evento_catering({
                 "titolo": titolo,
                 "cliente_id": opzioni_clienti[cliente_sel],
                 "luogo": luogo,
-                "data_inizio": datetime.combine(
-                    data_inizio, _parse_orario(orario_inizio, "00:00")
-                ).isoformat(),
-                "data_fine": datetime.combine(
-                    data_fine, _parse_orario(orario_fine, "23:59")
-                ).isoformat(),
+                "data_inizio": dt_inizio.isoformat(),
+                "data_fine": dt_fine.isoformat(),
                 "orario_inizio": orario_inizio,
                 "orario_fine": orario_fine,
                 "note": note,
                 "stato": "nuovo",
                 "event_manager_id": opzioni_managers[manager_sel],
             }, utente["id"])
+
             if nuovo:
                 st.success("Evento creato.")
+
+                # Aggiunge automaticamente al calendario di tutti gli utenti
+                tutti = lista_utenti()
+                for u in tutti:
+                    try:
+                        crea_evento({
+                            "titolo": titolo,
+                            "tipo": "appuntamento",
+                            "data_inizio": dt_inizio.isoformat(),
+                            "data_fine": dt_fine.isoformat(),
+                            "luogo": luogo or "",
+                            "note": f"Evento catering — {note}"
+                            if note else "Evento catering",
+                            "proprietario_id": u["id"],
+                        }, utente["id"])
+                    except Exception as e:
+                        print(f"Errore calendario per {u['id']}: {e}")
+
+                # Avvisa event manager
                 if opzioni_managers[manager_sel]:
                     from db import invia_messaggio
                     invia_messaggio(
