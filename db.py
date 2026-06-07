@@ -161,7 +161,10 @@ def _invalida_cache_clienti():
     lista_clienti.clear()
     get_cliente.clear()
     stats_dashboard.clear()
-    compleanni_in_arrivo.clear()
+    try:
+        compleanni_in_arrivo.clear()
+    except:
+        pass
 
 def crea_cliente(dati, user_id):
     sb = get_sb()
