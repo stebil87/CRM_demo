@@ -36,6 +36,106 @@ def get_groq_client():
     except:
         return None
 
+def genera_riepilogo_mattutino(utente: dict) -> str:
+    """Genera un riepilogo personalizzato all'apertura."""
+    from db import eventi_oggi_multi, get_calendari_visibili
+
+    ora = datetime.now().hour
+    if 5 <= ora < 12:
+        saluto = f"Buongiorno {utente['nome']}!"
+    elif 12 <= ora < 18:
+        saluto = f"Buon pomeriggio {utente['nome']}!"
+    else:
+        saluto = f"Buonasera {utente['nome']}!"
+
+    righe = [saluto, ""]
+
+    # ── Follow-up di oggi (solo se può vedere)
+    try:
+        fu_oggi = followup_oggi()
+        if fu_oggi:
+            righe.append(f"📋 **Follow-up di oggi ({len(fu_oggi)}):**")
+            for f in fu_oggi[:5]:
+                cl = f.get("clienti", {}) or {}
+                nome_cl = cl.get("ragione_sociale") or \
+                    f"{cl.get('nome','')} {cl.get('cognome','')}".strip() or "—"
+                righe.append(f"  - {f.get('titolo','—')} → {nome_cl}")
+        else:
+            righe.append("📋 Nessun follow-up per oggi.")
+    except:
+        pass
+
+    righe.append("")
+
+    # ── Agenda di oggi (rispetta le autorizzazioni calendario)
+    try:
+        ids_visibili = get_calendari_visibili(utente["id"])
+        ev_oggi = eventi_oggi_multi(tuple(ids_visibili))
+        if ev_oggi:
+            righe.append(f"📅 **Agenda di oggi ({len(ev_oggi)}):**")
+            for e in ev_oggi[:5]:
+                try:
+                    ora_str = datetime.fromisoformat(
+                        e["data_inizio"].replace("Z", "")
+                    ).strftime("%H:%M")
+                except:
+                    ora_str = "—"
+                righe.append(f"  - {ora_str} · {e.get('titolo','—')}")
+        else:
+            righe.append("📅 Nessun evento in agenda oggi.")
+    except:
+        pass
+
+    righe.append("")
+
+    # ── Messaggi non letti
+    try:
+        non_letti = lista_messaggi_non_letti(utente["id"])
+        if non_letti:
+            righe.append(f"✉️ **{len(non_letti)} messaggi non letti:**")
+            for m in non_letti[:3]:
+                mitt = m.get("mittente") or {}
+                nome_mitt = f"{mitt.get('nome','')} {mitt.get('cognome','')}".strip() or "—"
+                righe.append(
+                    f"  - Da {nome_mitt}: {m.get('oggetto','(nessun oggetto)')}")
+        else:
+            righe.append("✉️ Nessun messaggio non letto.")
+    except:
+        pass
+
+    # ── Eventi catering in arrivo (solo event_manager e admin)
+    if utente.get("ruolo") in ("admin", "event_manager"):
+        righe.append("")
+        try:
+            from db import lista_eventi_catering
+            eventi = lista_eventi_catering()
+            prossimi_7 = []
+            oggi_date = date.today()
+            tra7 = oggi_date + timedelta(days=7)
+            for ev in eventi:
+                try:
+                    data_ev = datetime.fromisoformat(
+                        ev["data_inizio"].replace("Z", "")
+                    ).date()
+                    if oggi_date <= data_ev <= tra7 and \
+                       ev.get("stato") not in ("annullato", "completato"):
+                        prossimi_7.append((data_ev, ev))
+                except:
+                    pass
+            if prossimi_7:
+                righe.append(f"🍽️ **Eventi catering prossimi 7gg ({len(prossimi_7)}):**")
+                for data_ev, ev in sorted(prossimi_7, key=lambda x: x[0])[:3]:
+                    righe.append(
+                        f"  - {data_ev.strftime('%d/%m')} · "
+                        f"{ev.get('titolo','—')} ({ev.get('stato','').upper()})"
+                    )
+        except:
+            pass
+
+    righe.append("")
+    righe.append("Come posso aiutarti?")
+    return "\n".join(righe)
+
 
 def chiama_groq(sistema: str, utente_msg: str, max_tokens: int = 500) -> Optional[str]:
     """Chiama Groq API e restituisce il testo della risposta."""
