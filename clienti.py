@@ -3,7 +3,66 @@ from db import lista_clienti, get_cliente, crea_cliente, aggiorna_cliente, elimi
 from auth import can_edit, is_admin
 
 STATI = ["prospect", "attivo", "inattivo", "perso"]
-SETTORI = ["Consulenza", "Tecnologia", "Commercio", "Industria", "Servizi",
+SETTORI = ["Consulenza", "Tecnologia", "Commercio", "Industria", "Servizi",def _form_nuovo_cliente(utente):
+    st.subheader("Nuovo cliente")
+
+    # Inizializza tipo in session state
+    if "new_cliente_tipo" not in st.session_state:
+        st.session_state.new_cliente_tipo = "fisica"
+
+    # Bottoni fuori dal form per scegliere il tipo
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button(
+            "Persona fisica" + (" ✓" if st.session_state.new_cliente_tipo == "fisica" else ""),
+            key="btn_tipo_fisica",
+            use_container_width=True
+        ):
+            st.session_state.new_cliente_tipo = "fisica"
+            st.rerun()
+    with col2:
+        if st.button(
+            "Persona giuridica" + (" ✓" if st.session_state.new_cliente_tipo == "giuridica" else ""),
+            key="btn_tipo_giuridica",
+            use_container_width=True
+        ):
+            st.session_state.new_cliente_tipo = "giuridica"
+            st.rerun()
+
+    tipo = st.session_state.new_cliente_tipo
+    st.markdown(
+        f"<div style='background:#1a1a2e;color:white;border-radius:6px;"
+        f"padding:6px 14px;font-size:12px;font-weight:600;margin-bottom:12px;"
+        f"display:inline-block;'>"
+        f"{'Persona giuridica' if tipo == 'giuridica' else 'Persona fisica'}</div>",
+        unsafe_allow_html=True
+    )
+    st.markdown("---")
+
+    with st.form("form_nuovo_cliente"):
+        dati = _form_campi(tipo=tipo, d={}, key_prefix="new")
+        submitted = st.form_submit_button("Crea cliente", use_container_width=True)
+
+    if submitted:
+        tipo_finale = st.session_state.new_cliente_tipo
+        errori = []
+        if tipo_finale == "giuridica" and not dati.get("ragione_sociale"):
+            errori.append("Ragione sociale obbligatoria")
+        if tipo_finale == "fisica" and not dati.get("nome"):
+            errori.append("Nome obbligatorio")
+        if tipo_finale == "fisica" and not dati.get("cognome"):
+            errori.append("Cognome obbligatorio")
+        if errori:
+            st.error(" · ".join(errori))
+        else:
+            dati["tipo"] = tipo_finale
+            risultato = crea_cliente(dati, utente["id"])
+            if risultato:
+                st.success("Cliente creato.")
+                st.session_state.new_cliente_tipo = "fisica"
+                st.rerun()
+            else:
+                st.error("Errore nel salvataggio — riprova.")
            "Sanità", "Finanza", "Immobiliare", "Logistica", "Turismo", "Alimentare", "Altro"]
 FORME_GIURIDICHE = ["SA", "Sagl", "Ditta individuale", "Associazione",
                     "Fondazione", "Cooperativa", "Società semplice", "Altro"]
@@ -137,18 +196,37 @@ def _scheda_cliente(c, utente):
 def _form_nuovo_cliente(utente):
     st.subheader("Nuovo cliente")
 
+    # Inizializza tipo in session state
     if "new_cliente_tipo" not in st.session_state:
         st.session_state.new_cliente_tipo = "fisica"
 
-    tipo = st.radio(
-        "Tipo cliente",
-        ["fisica", "giuridica"],
-        index=0 if st.session_state.new_cliente_tipo == "fisica" else 1,
-        key="new_tipo",
-        horizontal=True,
-        format_func=lambda x: "Persona fisica" if x == "fisica" else "Persona giuridica"
+    # Bottoni fuori dal form per scegliere il tipo
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button(
+            "Persona fisica" + (" ✓" if st.session_state.new_cliente_tipo == "fisica" else ""),
+            key="btn_tipo_fisica",
+            use_container_width=True
+        ):
+            st.session_state.new_cliente_tipo = "fisica"
+            st.rerun()
+    with col2:
+        if st.button(
+            "Persona giuridica" + (" ✓" if st.session_state.new_cliente_tipo == "giuridica" else ""),
+            key="btn_tipo_giuridica",
+            use_container_width=True
+        ):
+            st.session_state.new_cliente_tipo = "giuridica"
+            st.rerun()
+
+    tipo = st.session_state.new_cliente_tipo
+    st.markdown(
+        f"<div style='background:#1a1a2e;color:white;border-radius:6px;"
+        f"padding:6px 14px;font-size:12px;font-weight:600;margin-bottom:12px;"
+        f"display:inline-block;'>"
+        f"{'Persona giuridica' if tipo == 'giuridica' else 'Persona fisica'}</div>",
+        unsafe_allow_html=True
     )
-    st.session_state.new_cliente_tipo = tipo
     st.markdown("---")
 
     with st.form("form_nuovo_cliente"):
@@ -168,15 +246,13 @@ def _form_nuovo_cliente(utente):
             st.error(" · ".join(errori))
         else:
             dati["tipo"] = tipo_finale
-            st.write(f"DEBUG dati: {dati}")
             risultato = crea_cliente(dati, utente["id"])
-            st.write(f"DEBUG risultato: {risultato}")
             if risultato:
                 st.success("Cliente creato.")
                 st.session_state.new_cliente_tipo = "fisica"
                 st.rerun()
             else:
-                st.error("Errore nel salvataggio.")
+                st.error("Errore nel salvataggio — riprova.")
 
 
 def _form_modifica_cliente(c, utente):
