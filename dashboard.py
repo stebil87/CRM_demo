@@ -223,15 +223,16 @@ def pagina_dashboard(utente):
             unsafe_allow_html=True
         )
 
-    with col2:
+   with col2:
         st.markdown(
             "<div style='background:white;border:1px solid #eaeaf0;"
-            "border-top:4px solid #533483;border-radius:10px;"
+            "border-top:4px solid #2d6a4f;border-radius:10px;"
             "padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);'>"
             "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
-            "letter-spacing:0.8px;color:#888;margin-bottom:8px;'>Offerte in attesa</div>"
-            f"<div style='font-size:32px;font-weight:700;color:#1a1a2e;'>{kpi['n_attesa']}</div>"
-            "<div style='font-size:11px;color:#aaa;margin-top:4px;'>in attesa di risposta</div>"
+            "letter-spacing:0.8px;color:#888;margin-bottom:8px;'>Fatturato chiuso</div>"
+            f"<div style='font-size:32px;font-weight:700;color:#1a1a2e;'>"
+            f"CHF {sum(float(o.get('importo') or 0) for o in offerte_data if o.get('stato') == 'accettata'):,.0f}</div>"
+            "<div style='font-size:11px;color:#aaa;margin-top:4px;'>offerte accettate</div>"
             "</div>",
             unsafe_allow_html=True
         )
