@@ -206,6 +206,7 @@ def pagina_dashboard(utente):
 
     # ── KPI OPERATIVI ──
     kpi = kpi_operativi()
+    offerte_data = stats_dashboard()["offerte_data"]
     prossimo = kpi["prossimo_evento"]
 
     col1, col2, col3, col4 = st.columns(4)
