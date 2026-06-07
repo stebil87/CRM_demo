@@ -145,7 +145,7 @@ def _form_nuovo_cliente(utente):
             st.rerun()
     with col2:
         if st.button(
-            "Persona giuridica" + ( if st.session_state.new_cliente_tipo == "giuridica" else ""),
+            "Persona giuridica" + ("" if st.session_state.new_cliente_tipo == "giuridica" else ""),
             key="btn_tipo_giuridica",
             use_container_width=True
         ):
