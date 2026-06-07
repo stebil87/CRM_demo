@@ -10,3 +10,4 @@ torch>=2.1.0
 dateparser>=1.1.8
 sentence-transformers>=2.2.0
 accelerate>=0.26.0
+torchvision
