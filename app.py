@@ -98,8 +98,12 @@ section[data-testid="stSidebar"] .streamlit-expanderContent {
 }
 
 .main .block-container {
-    padding: 0rem 2.5rem 2rem 2.5rem;
+    padding-top: 0 !important;
+    padding-bottom: 2rem !important;
+    padding-left: 2.5rem !important;
+    padding-right: 2.5rem !important;
     max-width: 1400px;
+    margin-top: -4rem !important;
 }
 
 .main > div:first-child {
