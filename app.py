@@ -340,15 +340,10 @@ if utente:
             )
 
 if not utente:
-    # Sfondo nero fullscreen
-    st.markdown(
-        "<div class='login-page-bg'></div>",
-        unsafe_allow_html=True
-    )
     st.markdown(
         """<style>
         [data-testid="stAppViewContainer"] {
-            background: transparent !important;
+            background: linear-gradient(135deg, #0d0d1a 0%, #1a1a2e 60%, #0f3460 100%) !important;
         }
         [data-testid="stAppViewBlockContainer"] {
             background: transparent !important;
@@ -359,39 +354,83 @@ if not utente:
         section[data-testid="stSidebar"] {
             display: none !important;
         }
+        .block-container {
+            padding-top: 4rem !important;
+        }
+        /* Input scuri */
+        .stTextInput > div > div > input {
+            background: rgba(255,255,255,0.08) !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            color: white !important;
+            border-radius: 8px !important;
+        }
+        .stTextInput > div > div > input:focus {
+            border-color: rgba(255,255,255,0.5) !important;
+            box-shadow: none !important;
+        }
+        .stTextInput > div > div > input::placeholder {
+            color: rgba(255,255,255,0.3) !important;
+        }
+        /* Label input */
+        .stTextInput label {
+            color: rgba(255,255,255,0.5) !important;
+            font-size: 12px !important;
+        }
+        /* Bottone Entra */
+        .stForm .stFormSubmitButton > button,
+        .stForm [data-testid="stFormSubmitButton"] > button {
+            background: white !important;
+            color: #1a1a2e !important;
+            font-weight: 700 !important;
+            border-radius: 8px !important;
+            width: 100% !important;
+            padding: 12px !important;
+            font-size: 14px !important;
+            letter-spacing: 0.5px !important;
+        }
+        .stForm .stFormSubmitButton > button:hover,
+        .stForm [data-testid="stFormSubmitButton"] > button:hover {
+            background: #e8e8f0 !important;
+        }
+        /* Messaggi errore */
+        .stAlert {
+            background: rgba(233,69,96,0.15) !important;
+            border: 1px solid rgba(233,69,96,0.3) !important;
+            color: white !important;
+        }
         </style>""",
         unsafe_allow_html=True
     )
 
-    col_sx, col_center, col_dx = st.columns([1, 1.2, 1])
-    with col_center:
-        st.markdown("<br><br><br>", unsafe_allow_html=True)
-
-        st.markdown("<div class='login-card'>", unsafe_allow_html=True)
-
-        try:
-            logo1, logo2, logo3 = st.columns([1, 2, 1])
-            with logo2:
+    _, col, _ = st.columns([1, 1.2, 1])
+    with col:
+        # Logo
+        logo1, logo2, logo3 = st.columns([1, 2, 1])
+        with logo2:
+            try:
                 st.image("1908_Group_White.png", use_container_width=True)
-        except:
-            st.markdown(
-                "<h2 style='text-align:center;color:white;'>1908 Group SA</h2>",
-                unsafe_allow_html=True
-            )
+            except:
+                st.markdown(
+                    "<h2 style='text-align:center;color:white;'>"
+                    "1908 Group SA</h2>",
+                    unsafe_allow_html=True
+                )
 
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown(
-            "<p class='login-label'>Accesso riservato</p>",
+            "<p style='font-size:11px;font-weight:700;letter-spacing:1.5px;"
+            "text-transform:uppercase;color:rgba(255,255,255,0.35);"
+            "text-align:center;margin-bottom:24px;'>Accesso riservato</p>",
             unsafe_allow_html=True
         )
 
         pagina_login()
 
-        st.markdown("</div>", unsafe_allow_html=True)
-
         st.markdown(
-            "<p class='login-footer'>1908 Group SA &nbsp;·&nbsp; "
-            "Piattaforma CRM &nbsp;·&nbsp; Uso riservato</p>",
+            "<p style='font-size:11px;color:rgba(255,255,255,0.2);"
+            "text-align:center;margin-top:24px;letter-spacing:0.3px;'>"
+            "1908 Group SA &nbsp;·&nbsp; Piattaforma CRM &nbsp;·&nbsp; "
+            "Uso riservato</p>",
             unsafe_allow_html=True
         )
 
