@@ -26,36 +26,32 @@ def check_auth():
 
 
 def pagina_login():
-    st.markdown("---")
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        with st.form("form_login"):
-            email = st.text_input("Email")
-            password = st.text_input("Password", type="password")
-            submitted = st.form_submit_button("Entra", use_container_width=True)
+    with st.form("form_login"):
+        email = st.text_input("Email", placeholder="nome@esempio.ch")
+        password = st.text_input("Password", type="password", placeholder="••••••••")
+        submitted = st.form_submit_button("Entra", use_container_width=True)
 
-        if submitted:
-            if not email or not password:
-                st.error("Inserisci email e password.")
-                return
-            with st.spinner("Accesso in corso..."):
-                user, err = login_utente(email, password)
-            if err or not user:
-                st.error("Credenziali non valide.")
-                return
-            profilo = get_profilo_utente(user.id)
-            if not profilo:
-                st.error("Utente non trovato. Contatta un amministratore.")
-                return
-            if not profilo.get("attivo", True):
-                st.error("Account disattivato. Contatta un amministratore.")
-                return
-            st.session_state.utente = profilo
-            st.session_state.supabase_user = user
-            # Reset stato navigazione al login
-            st.session_state.pagina = "dashboard"
-            st.session_state.msg_notificati = set()
-            st.rerun()
+    if submitted:
+        if not email or not password:
+            st.error("Inserisci email e password.")
+            return
+        with st.spinner("Accesso in corso..."):
+            user, err = login_utente(email, password)
+        if err or not user:
+            st.error("Credenziali non valide.")
+            return
+        profilo = get_profilo_utente(user.id)
+        if not profilo:
+            st.error("Utente non trovato. Contatta un amministratore.")
+            return
+        if not profilo.get("attivo", True):
+            st.error("Account disattivato. Contatta un amministratore.")
+            return
+        st.session_state.utente = profilo
+        st.session_state.supabase_user = user
+        st.session_state.pagina = "dashboard"
+        st.session_state.msg_notificati = set()
+        st.rerun()
 
 
 def do_logout():
