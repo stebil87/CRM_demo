@@ -681,26 +681,64 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
 # ── GESTORE STATO CONVERSAZIONE ───────────────────────
 
 def processa_messaggio(testo: str, utente: dict, modelli) -> str:
-    """Processa un messaggio gestendo lo stato multi-turn."""
     chat_state = st.session_state.get("assistente_state", {})
     pending_intent = chat_state.get("pending_intent")
     pending_entities = chat_state.get("pending_entities", {})
     pending_field = chat_state.get("pending_field")
+    testo_originale = chat_state.get("testo_originale", testo)
 
     if pending_intent and pending_field:
-        pending_entities[pending_field] = testo.strip()
+        # Prova a parsare la risposta come dato utile
+        risposta_pulita = testo.strip()
+
+        # Se sta rispondendo a "data" prova dateparser
+        if pending_field == "data" and DATEPARSER_OK:
+            import dateparser
+            parsed = dateparser.parse(
+                risposta_pulita,
+                languages=["it"],
+                settings={"PREFER_DATES_FROM": "future"}
+            )
+            if parsed:
+                pending_entities["data"] = parsed.date()
+                # Estrai anche ora se presente
+                orari = re.findall(r'\b(\d{1,2})[:\.](\d{2})\b', risposta_pulita)
+                if orari:
+                    try:
+                        from datetime import time
+                        pending_entities["ora"] = time(int(orari[0][0]), int(orari[0][1]))
+                        if len(orari) >= 2:
+                            pending_entities["ora_fine"] = time(int(orari[1][0]), int(orari[1][1]))
+                    except:
+                        pass
+            else:
+                # Non riesco a parsare — chiedi di nuovo
+                return "Non ho capito la data. Puoi dirmi quando? (es. domani, lunedì 9 giugno, 15/06)"
+
+        # Se sta rispondendo a "titolo"
+        elif pending_field == "titolo":
+            pending_entities["titolo"] = risposta_pulita
+
+        # Se sta rispondendo a qualsiasi altro campo
+        else:
+            pending_entities[pending_field] = risposta_pulita
+
         st.session_state.assistente_state = {
             "pending_intent": pending_intent,
             "pending_entities": pending_entities,
             "pending_field": None,
+            "testo_originale": testo_originale,
         }
+
         risposta = esegui_azione(
             pending_intent,
-            {"testo_originale": testo},
+            {"testo_originale": testo_originale},
             utente,
             pending_entities
         )
+
     else:
+        # Nuova richiesta
         intent, score = classifica_intent(testo, modelli)
         entita = estrai_entita(testo)
 
@@ -711,7 +749,7 @@ def processa_messaggio(testo: str, utente: dict, modelli) -> str:
         if match_virgolette:
             dati_extra["titolo"] = match_virgolette[0]
 
-        # Estrai orari con regex (es. "alle 11.30 alle 13.30")
+        # Estrai orari con regex
         orari = re.findall(r'\b(\d{1,2})[:\.](\d{2})\b', testo)
         if len(orari) >= 2:
             try:
@@ -728,12 +766,24 @@ def processa_messaggio(testo: str, utente: dict, modelli) -> str:
                 pass
 
         # Data da dateparser
-        if entita.get("data"):
-            dati_extra["data"] = entita["data"]
-        elif DATEPARSER_OK:
-            data_parsed, _ = _estrai_data_ora(testo)
-            if data_parsed:
-                dati_extra["data"] = data_parsed
+        if DATEPARSER_OK:
+            import dateparser
+            # Prima cerca parole chiave temporali nel testo
+            parole_tempo = ["domani", "oggi", "dopodomani", "lunedì", "martedì",
+                           "mercoledì", "giovedì", "venerdì", "sabato", "domenica",
+                           "prossimo", "prossima", "settimana", "mese"]
+            ha_data = any(p in testo.lower() for p in parole_tempo)
+            # Cerca anche date esplicite tipo 15/06
+            ha_data = ha_data or bool(re.search(r'\d{1,2}/\d{1,2}', testo))
+
+            if ha_data:
+                parsed = dateparser.parse(
+                    testo,
+                    languages=["it"],
+                    settings={"PREFER_DATES_FROM": "future"}
+                )
+                if parsed:
+                    dati_extra["data"] = parsed.date()
 
         st.session_state.assistente_state = {
             "pending_intent": intent,
@@ -742,6 +792,7 @@ def processa_messaggio(testo: str, utente: dict, modelli) -> str:
                 "luoghi": entita.get("luoghi", []),
             },
             "pending_field": None,
+            "testo_originale": testo,
             "last_intent": intent,
             "last_score": score,
         }
