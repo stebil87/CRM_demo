@@ -175,7 +175,9 @@ def crea_cliente(dati, user_id):
                         f"{dati.get('nome','')} {dati.get('cognome','')}".strip()
             })
         return res.data[0] if res.data else None
-    except:
+    except Exception as e:
+        print(f"ERRORE crea_cliente: {e}")
+        st.error(f"Errore DB: {e}")  # ← aggiungi questa riga
         return None
 
 def aggiorna_cliente(cliente_id, dati, user_id=None):
