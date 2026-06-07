@@ -34,6 +34,17 @@ html, body, [class*="css"] {
 footer { display: none !important; }
 #MainMenu { visibility: hidden; }
 
+header[data-testid="stHeader"] {
+    display: none !important;
+    height: 0 !important;
+}
+.main > div:first-child {
+    padding-top: 0 !important;
+}
+[data-testid="stAppViewContainer"] > section > div:first-child {
+    padding-top: 0 !important;
+}
+
 [data-testid="collapsedControl"] { display: none !important; }
 button[data-testid="baseButton-header"] { display: none !important; }
 
