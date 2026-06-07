@@ -380,6 +380,17 @@ if not utente:
             color: rgba(255,255,255,0.5) !important;
             font-size: 12px !important;
         }
+
+        /* Autofill browser */
+        .stTextInput > div > div > input:-webkit-autofill,
+        .stTextInput > div > div > input:-webkit-autofill:hover,
+        .stTextInput > div > div > input:-webkit-autofill:focus,
+        .stTextInput > div > div > input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 30px #1a1a2e inset !important;
+            -webkit-text-fill-color: white !important;
+            caret-color: white !important;
+        }
+        
         /* Bottone Entra */
         .stForm .stFormSubmitButton > button,
         .stForm [data-testid="stFormSubmitButton"] > button {
