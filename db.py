@@ -42,6 +42,29 @@ def profila(func):
         return risultato
     return wrapper
 
+def get_impostazione(chiave: str, default: str = "") -> str:
+    sb = get_sb()
+    try:
+        res = sb.table("impostazioni").select("valore").eq(
+            "chiave", chiave
+        ).execute()
+        if res.data:
+            return res.data[0]["valore"]
+        return default
+    except:
+        return default
+
+def set_impostazione(chiave: str, valore: str):
+    sb = get_sb()
+    try:
+        sb.table("impostazioni").upsert({
+            "chiave": chiave,
+            "valore": valore,
+            "updated_at": datetime.utcnow().isoformat()
+        }, on_conflict="chiave").execute()
+    except Exception as e:
+        print(f"ERRORE set_impostazione: {e}")
+
 # ── CLIENT ────────────────────────────────────────────
 
 @st.cache_resource
