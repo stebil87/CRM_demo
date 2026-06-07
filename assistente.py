@@ -24,347 +24,182 @@ try:
 except:
     DATEPARSER_OK = False
 
-# ── ESEMPI PER INTENT ─────────────────────────────────
+# ── GROQ CLIENT ───────────────────────────────────────
 
-INTENT_ESEMPI = {
-    "crea_appuntamento": [
-        "crea un appuntamento domani alle 10",
-        "metti un meeting lunedì alle 15",
-        "fissa una riunione con Rossi venerdì",
-        "aggiungi un incontro nel calendario",
-        "crea un appuntamento nel mio calendario per domani alle 11",
-        "segna una riunione per la prossima settimana",
-        "prenota un appuntamento con il cliente",
-        "metti in agenda un incontro",
-        "crea appuntamento ore 14",
-        "riunione domani mattina alle 9",
-        "metti appuntamento per domani",
-        "calendario riunione giovedì alle 10",
-        "metti un appuntamento domani dalle 12 alle 13",
-        "fissa incontro lunedì dalle 10 alle 11",
-    ],
-    "invia_messaggio": [
-        "manda un messaggio a Giorgio",
-        "scrivi a Stefano che la riunione è rinviata",
-        "invia un messaggio interno a Giovanni",
-        "contatta Marco e digli di chiamarmi",
-        "avvisa il team della riunione",
-        "manda una nota a Luca",
-        "scrivi a tutti che c'è una riunione",
-        "invia messaggio a Giorgio che dice ciao",
-        "manda a Luca che ci vediamo domani",
-        "di a Giorgio di chiamarmi",
-    ],
-    "cerca_cliente": [
-        "cerca il cliente Rossi",
-        "trova informazioni su Bianchi",
-        "chi è Mario Verdi",
-        "dammi i dettagli del cliente Ferrari",
-        "trova il contatto Gianella",
-        "cerca Stefano Billeter",
-        "info sul cliente ABC SA",
-        "mostrami i dati di Aleandro",
-        "cerca cliente per nome",
-        "trovami il cliente",
-    ],
-    "crea_cliente": [
-        "aggiungi un nuovo cliente",
-        "crea un nuovo contatto",
-        "inserisci il cliente Mario Rossi",
-        "registra un nuovo cliente di nome Bianchi",
-        "nuovo cliente da aggiungere",
-        "aggiungi contatto nuovo",
-    ],
-    "crea_offerta": [
-        "crea una nuova offerta",
-        "genera un preventivo per il cliente",
-        "prepara una proposta commerciale",
-        "fai un preventivo per l'evento",
-        "nuova offerta per Rossi",
-        "crea preventivo",
-    ],
-    "mostra_followup": [
-        "mostrami i follow-up di oggi",
-        "cosa devo fare oggi",
-        "quali sono le scadenze",
-        "chi devo richiamare",
-        "promemoria di oggi",
-        "follow up in sospeso",
-        "cosa ho da fare questa settimana",
-        "mostrami i promemoria",
-        "scadenze di oggi",
-        "attività pendenti",
-    ],
-    "crea_evento": [
-        "crea un evento catering",
-        "nuovo evento per il banchetto",
-        "aggiungi un evento catering per sabato",
-        "organizza un ricevimento",
-        "crea evento per matrimonio",
-        "nuovo evento catering",
-    ],
-    "mostra_eventi": [
-        "mostrami gli eventi in programma",
-        "quali eventi ci sono",
-        "lista degli eventi catering",
-        "eventi prossimi",
-        "cosa c'è in calendario per il catering",
-        "prossimi eventi",
-    ],
-    "registra_contatto": [
-        "ho chiamato il cliente Rossi",
-        "registra che ho parlato con Bianchi",
-        "ho incontrato Mario oggi",
-        "segna nel diario che ho sentito il cliente",
-        "ho avuto una riunione con Ferrari",
-        "registra la conversazione con Gianella",
-        "ho parlato con il cliente",
-        "nota nel diario",
-    ],
-    "mostra_messaggi": [
-        "mostrami i messaggi non letti",
-        "ho nuovi messaggi",
-        "controlla la posta",
-        "quanti messaggi non letti ho",
-        "inbox messaggi",
-        "messaggi in arrivo",
-    ],
-    "crea_nota": [
-        "crea una nota",
-        "aggiungi un appunto",
-        "ricordami di chiamare domani",
-        "segna questo appunto",
-        "nota rapida",
-        "post-it con scritto riunione",
-        "annota questo",
-    ],
-    "domanda_generica": [
-        "quanti clienti ho",
-        "statistiche del CRM",
-        "riepilogo delle attività",
-        "quante offerte ci sono",
-        "qual è il fatturato",
-        "dimmi qualcosa sul CRM",
-        "quanti clienti attivi",
-    ],
-    "saluto": [
-        "ciao",
-        "buongiorno",
-        "buonasera",
-        "cosa puoi fare",
-        "come funzioni",
-        "aiuto",
-        "help",
-        "cosa sei",
-        "presentati",
-        "chi sei",
-    ],
+def get_groq_client():
+    try:
+        from groq import Groq
+        api_key = st.secrets.get("GROQ_API_KEY", "")
+        if not api_key:
+            return None
+        return Groq(api_key=api_key)
+    except:
+        return None
+
+
+def chiama_groq(sistema: str, utente_msg: str, max_tokens: int = 500) -> Optional[str]:
+    """Chiama Groq API e restituisce il testo della risposta."""
+    client = get_groq_client()
+    if not client:
+        return None
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {"role": "system", "content": sistema},
+                {"role": "user", "content": utente_msg}
+            ],
+            max_tokens=max_tokens,
+            temperature=0.1,  # bassa temperatura per output strutturato
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"[GROQ] Errore: {e}")
+        return None
+
+
+# ── PROMPT SISTEMA PER ESTRAZIONE ─────────────────────
+
+PROMPT_ESTRAZIONE = """Sei un assistente per un CRM di una società di catering chiamata 1908 Group SA.
+Il tuo compito è analizzare il messaggio dell'utente ed estrarre informazioni strutturate.
+
+Rispondi SOLO con un JSON valido, senza testo aggiuntivo, senza markdown, senza backtick.
+
+Il JSON deve avere questa struttura:
+{
+  "intent": "uno tra: crea_appuntamento | invia_messaggio | cerca_cliente | crea_cliente | crea_offerta | mostra_followup | crea_evento | mostra_eventi | registra_contatto | mostra_messaggi | crea_nota | domanda_generica | saluto",
+  "titolo": "titolo dell'appuntamento o null",
+  "data": "data in formato YYYY-MM-DD o null. Oggi è %s. Interpreta 'domani', 'lunedì', ecc.",
+  "ora_inizio": "orario inizio in formato HH:MM o null",
+  "ora_fine": "orario fine in formato HH:MM o null",
+  "nome_persona": "nome della persona menzionata (cliente, destinatario, ecc.) o null",
+  "nome_destinatario": "nome del destinatario del messaggio o null",
+  "corpo_messaggio": "testo del messaggio da inviare o null",
+  "luogo": "luogo dell'appuntamento o null",
+  "testo_nota": "testo della nota da creare o null",
+  "descrizione": "descrizione del contatto o evento o null",
+  "confidenza": 0.0
 }
 
-
-# ── CARICA MODELLI ────────────────────────────────────
-
-@st.cache_resource
-def carica_modelli():
-    try:
-        from sentence_transformers import SentenceTransformer
-        import numpy as np
-
-        model = SentenceTransformer(
-            "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-        )
-
-        esempi_flat = []
-        labels_flat = []
-        for intent, frasi in INTENT_ESEMPI.items():
-            for frase in frasi:
-                esempi_flat.append(frase)
-                labels_flat.append(intent)
-
-        embeddings = model.encode(esempi_flat, convert_to_numpy=True)
-        print(f"[ASSISTENTE] Modello caricato — {len(esempi_flat)} esempi")
-        return model, embeddings, labels_flat
-
-    except Exception as e:
-        print(f"[ASSISTENTE] Modelli non disponibili: {e} — uso regex")
-        return None, None, None
+Esempi:
+- "metti un appuntamento domani dalle 12 alle 13 con simone" → intent: crea_appuntamento, titolo: "Incontro con Simone", data: domani, ora_inizio: "12:00", ora_fine: "13:00", nome_persona: "Simone"
+- "manda un messaggio a Giorgio che dice di chiamarmi" → intent: invia_messaggio, nome_destinatario: "Giorgio", corpo_messaggio: "Di chiamarmi"
+- "cerca il cliente Rossi" → intent: cerca_cliente, nome_persona: "Rossi"
+- "mostrami i follow-up di oggi" → intent: mostra_followup
+- "quanti clienti ho" → intent: domanda_generica
+- "ciao cosa puoi fare" → intent: saluto
+"""
 
 
-# ── CLASSIFICATORE INTENT ─────────────────────────────
+def estrai_con_groq(testo: str) -> Optional[dict]:
+    """Usa Groq per estrarre intent ed entità dal testo."""
+    oggi = date.today().strftime("%Y-%m-%d (%A %d %B %Y)")
+    sistema = PROMPT_ESTRAZIONE % oggi
 
-def classifica_intent(testo: str, modelli) -> tuple[str, float]:
-    model, embeddings_esempi, labels = modelli
-
-    if model is None or embeddings_esempi is None:
-        return _classifica_regex(testo)
+    risposta = chiama_groq(sistema, testo, max_tokens=300)
+    if not risposta:
+        return None
 
     try:
-        import numpy as np
-        from sklearn.metrics.pairwise import cosine_similarity
-
-        query_emb = model.encode([testo], convert_to_numpy=True)
-        sims = cosine_similarity(query_emb, embeddings_esempi)[0]
-        top_idx = np.argsort(sims)[::-1][:5]
-
-        voti = {}
-        for idx in top_idx:
-            intent = labels[idx]
-            score = float(sims[idx])
-            voti[intent] = voti.get(intent, 0) + score
-
-        best_intent = max(voti, key=lambda k: voti[k])
-        best_score = float(sims[top_idx[0]])
-
-        print(f"[INTENT] '{testo[:50]}' → {best_intent} ({best_score:.2f})")
-        return best_intent, best_score
-
+        # Pulisci eventuale markdown
+        risposta = risposta.strip()
+        risposta = re.sub(r'^```json\s*', '', risposta)
+        risposta = re.sub(r'^```\s*', '', risposta)
+        risposta = re.sub(r'\s*```$', '', risposta)
+        return json.loads(risposta)
     except Exception as e:
-        print(f"[INTENT] Errore: {e} — uso regex")
-        return _classifica_regex(testo)
+        print(f"[GROQ] Errore parsing JSON: {e} — risposta: {risposta[:200]}")
+        return None
 
 
-def _classifica_regex(testo: str) -> tuple[str, float]:
+# ── FALLBACK REGEX ─────────────────────────────────────
+
+def estrai_con_regex(testo: str) -> dict:
+    """Fallback regex quando Groq non è disponibile."""
     t = testo.lower()
-    patterns = {
-        "crea_appuntamento": [
-            r"appuntamento", r"riunione", r"meeting", r"incontro",
-            r"metti.*calendario", r"crea.*calendario", r"fissa.*agenda",
-            r"metti.*agenda", r"dalle \d+ alle \d+"
-        ],
-        "invia_messaggio": [
-            r"messaggio", r"scrivi a", r"manda\s+a", r"invia.*a",
-            r"contatta", r"avvisa", r"notifica"
-        ],
-        "cerca_cliente": [
-            r"^cerca\b", r"^trova\b", r"chi è\b", r"info su\b",
-            r"dettagli su\b", r"dammi info"
-        ],
-        "crea_cliente": [
-            r"nuovo cliente", r"aggiungi cliente", r"crea cliente",
-            r"inserisci cliente"
-        ],
-        "crea_offerta": [r"offerta", r"preventivo", r"proposta commerciale"],
-        "mostra_followup": [
-            r"follow.?up", r"cosa devo fare", r"promemoria",
-            r"scadenze", r"richiamare"
-        ],
-        "crea_evento": [r"evento catering", r"banchetto", r"ricevimento"],
-        "mostra_eventi": [r"eventi in programma", r"prossimi eventi"],
-        "registra_contatto": [
-            r"ho chiamato", r"ho parlato", r"ho incontrato", r"ho sentito"
-        ],
-        "mostra_messaggi": [r"messaggi non letti", r"inbox"],
-        "crea_nota": [r"nota:", r"appunto", r"ricordami", r"post.?it"],
-        "saluto": [
-            r"^ciao\b", r"^buongiorno\b", r"^buonasera\b",
-            r"cosa puoi fare", r"come funzioni"
-        ],
-        "domanda_generica": [
-            r"quanti clienti", r"statistiche", r"fatturato"
-        ],
+    risultato = {
+        "intent": "domanda_generica",
+        "titolo": None,
+        "data": None,
+        "ora_inizio": None,
+        "ora_fine": None,
+        "nome_persona": None,
+        "nome_destinatario": None,
+        "corpo_messaggio": None,
+        "luogo": None,
+        "testo_nota": None,
+        "descrizione": None,
+        "confidenza": 0.5,
     }
-    scores = {intent: 0 for intent in patterns}
-    for intent, pats in patterns.items():
-        for pat in pats:
-            if re.search(pat, t):
-                scores[intent] += 1
-    best = max(scores, key=lambda k: scores[k])
-    if scores[best] == 0:
-        return "domanda_generica", 0.4
-    return best, min(0.5 + scores[best] * 0.15, 0.95)
 
+    # Intent
+    if any(p in t for p in ["appuntamento", "riunione", "meeting", "calendario", "agenda"]):
+        risultato["intent"] = "crea_appuntamento"
+    elif any(p in t for p in ["messaggio", "scrivi a", "manda a", "invia a"]):
+        risultato["intent"] = "invia_messaggio"
+    elif any(p in t for p in ["cerca cliente", "trova cliente", "info su", "chi è"]):
+        risultato["intent"] = "cerca_cliente"
+    elif any(p in t for p in ["follow-up", "followup", "scadenze", "da fare"]):
+        risultato["intent"] = "mostra_followup"
+    elif any(p in t for p in ["messaggi non letti", "inbox", "posta"]):
+        risultato["intent"] = "mostra_messaggi"
+    elif any(p in t for p in ["nota", "appunto", "ricordami"]):
+        risultato["intent"] = "crea_nota"
+    elif any(p in t for p in ["ciao", "buongiorno", "cosa puoi", "aiuto", "help"]):
+        risultato["intent"] = "saluto"
+    elif any(p in t for p in ["quanti clienti", "statistiche", "fatturato"]):
+        risultato["intent"] = "domanda_generica"
 
-# ── ENTITY EXTRACTION ─────────────────────────────────
-
-def _estrai_data_orari_smart(testo: str) -> dict:
-    """Estrae data e orari in modo robusto."""
-    risultato = {"data": None, "ora": None, "ora_fine": None}
-
-    # Estrai orari HH:MM o HH.MM
-    orari_raw = re.findall(r'\b(\d{1,2})[:\.](\d{2})\b', testo)
-    # Estrai orari interi preceduti da "alle", "dalle", "fino alle"
-    orari_interi = re.findall(
-        r'(?:alle|dalle|fino alle|ore)\s+(\d{1,2})(?![:\.\d])',
-        testo.lower()
-    )
-
-    orari_trovati = []
-    for h, m in orari_raw:
-        try:
-            from datetime import time
-            orari_trovati.append(time(int(h), int(m)))
-        except:
-            pass
-    for h in orari_interi:
-        try:
-            from datetime import time
-            t_obj = time(int(h), 0)
-            if t_obj not in orari_trovati:
-                orari_trovati.append(t_obj)
-        except:
-            pass
-
-    orari_trovati.sort()
-
-    if len(orari_trovati) >= 2:
-        risultato["ora"] = orari_trovati[0]
-        risultato["ora_fine"] = orari_trovati[1]
-    elif len(orari_trovati) == 1:
-        risultato["ora"] = orari_trovati[0]
-
-    # Estrai data — rimuovi numeri di orario dal testo per non confondere dateparser
+    # Data
     if DATEPARSER_OK:
-        # Rimuovi pattern orari dal testo prima di parsare la data
-        testo_pulito = re.sub(r'\b\d{1,2}[:\.]?\d{0,2}\b', '', testo)
-        testo_pulito = re.sub(
-            r'(?:alle|dalle|fino alle|ore)\s+', '', testo_pulito, flags=re.IGNORECASE
-        )
-
-        parole_tempo = [
-            "domani", "oggi", "dopodomani",
-            "lunedì", "martedì", "mercoledì", "giovedì",
-            "venerdì", "sabato", "domenica",
-            "prossimo", "prossima", "settimana", "mese"
-        ]
-        ha_data = any(p in testo.lower() for p in parole_tempo)
-        ha_data = ha_data or bool(re.search(r'\d{1,2}/\d{1,2}', testo))
-
-        if ha_data:
-            try:
+        try:
+            testo_pulito = re.sub(r'\b\d{1,2}[:\.]?\d{0,2}\b', '', testo)
+            parole_tempo = [
+                "domani", "oggi", "lunedì", "martedì", "mercoledì",
+                "giovedì", "venerdì", "sabato", "domenica", "prossimo"
+            ]
+            if any(p in t for p in parole_tempo):
                 parsed = dateparser.parse(
-                    testo_pulito,
-                    languages=["it"],
+                    testo_pulito, languages=["it"],
                     settings={"PREFER_DATES_FROM": "future"}
                 )
                 if parsed:
-                    risultato["data"] = parsed.date()
-            except:
-                pass
+                    risultato["data"] = parsed.date().strftime("%Y-%m-%d")
+        except:
+            pass
+
+    # Orari
+    orari_raw = re.findall(r'\b(\d{1,2})[:\.](\d{2})\b', testo)
+    orari_interi = re.findall(
+        r'(?:alle|dalle|ore)\s+(\d{1,2})(?![:\.\d])', t)
+
+    orari = []
+    for h, m in orari_raw:
+        orari.append(f"{int(h):02d}:{m}")
+    for h in orari_interi:
+        t_str = f"{int(h):02d}:00"
+        if t_str not in orari:
+            orari.append(t_str)
+    orari.sort()
+
+    if len(orari) >= 2:
+        risultato["ora_inizio"] = orari[0]
+        risultato["ora_fine"] = orari[1]
+    elif len(orari) == 1:
+        risultato["ora_inizio"] = orari[0]
+
+    # Nome persona
+    match = re.search(
+        r'(?:con|a|per|da)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)', testo)
+    if match:
+        risultato["nome_persona"] = match.group(1)
+
+    # Titolo da virgolette
+    match_vir = re.findall(r'"([^"]+)"', testo)
+    if match_vir:
+        risultato["titolo"] = match_vir[0]
 
     return risultato
-
-
-def estrai_entita(testo: str) -> dict:
-    entita = {
-        "persone": [],
-        "luoghi": [],
-        "organizzazioni": [],
-        "data": None,
-        "ora": None,
-        "testo_originale": testo,
-    }
-
-    # Nomi propri con regex
-    patterns = [
-        r"(?:a|con|per|da)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
-        r"(?:il signor|la signora|dott\.?|ing\.?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
-    ]
-    for pat in patterns:
-        match = re.search(pat, testo)
-        if match:
-            entita["persone"].append(match.group(1))
-
-    return entita
 
 
 # ── RESOLVER ──────────────────────────────────────────
@@ -405,15 +240,30 @@ def resolve_utente(nome: str, utente_corrente) -> tuple:
 
 # ── EXECUTOR ──────────────────────────────────────────
 
-def esegui_azione(intent: str, entita: dict, utente: dict,
+def esegui_azione(estratto: dict, utente: dict,
                   dati_extra: dict = None) -> str:
+    """Esegue l'azione basandosi sui dati estratti da Groq/regex."""
     dati_extra = dati_extra or {}
+    intent = estratto.get("intent", "domanda_generica")
+
+    # Merge estratto + dati_extra (dati_extra ha priorità — sono risposte dell'utente)
+    titolo = dati_extra.get("titolo") or estratto.get("titolo")
+    data_str = dati_extra.get("data") or estratto.get("data")
+    ora_inizio_str = dati_extra.get("ora_inizio") or estratto.get("ora_inizio")
+    ora_fine_str = dati_extra.get("ora_fine") or estratto.get("ora_fine")
+    nome_persona = dati_extra.get("nome_persona") or estratto.get("nome_persona")
+    nome_dest = dati_extra.get("nome_destinatario") or estratto.get("nome_destinatario")
+    corpo_msg = dati_extra.get("corpo_messaggio") or estratto.get("corpo_messaggio")
+    testo_nota = dati_extra.get("testo_nota") or estratto.get("testo_nota")
+    descrizione = dati_extra.get("descrizione") or estratto.get("descrizione")
+    luogo = dati_extra.get("luogo") or estratto.get("luogo") or ""
+    nome_cliente = dati_extra.get("nome_cliente") or nome_persona
 
     # ── SALUTO ──
     if intent == "saluto":
         nome = utente.get("nome", "")
         return (
-            f"Ciao {nome}! Sono l'assistente del CRM 1908 Group. "
+            f"Ciao {nome}! Sono l'assistente del CRM 1908 Group.\n"
             f"Posso aiutarti a:\n"
             f"- Creare appuntamenti nel calendario\n"
             f"- Mandare messaggi ai colleghi\n"
@@ -426,24 +276,24 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
 
     # ── MOSTRA FOLLOW-UP ──
     if intent == "mostra_followup":
-        oggi = followup_oggi()
+        oggi_fu = followup_oggi()
         prossimi = followup_prossimi7()
-        if not oggi and not prossimi:
+        if not oggi_fu and not prossimi:
             return "Nessun follow-up in programma per oggi o i prossimi 7 giorni."
         risposta = ""
-        if oggi:
-            risposta += f"**Follow-up di oggi ({len(oggi)}):**\n"
-            for f in oggi[:5]:
-                cliente = f.get("clienti", {})
-                nome_cl = cliente.get("ragione_sociale") or \
-                    f"{cliente.get('nome','')} {cliente.get('cognome','')}".strip()
+        if oggi_fu:
+            risposta += f"**Follow-up di oggi ({len(oggi_fu)}):**\n"
+            for f in oggi_fu[:5]:
+                cl = f.get("clienti", {})
+                nome_cl = cl.get("ragione_sociale") or \
+                    f"{cl.get('nome','')} {cl.get('cognome','')}".strip()
                 risposta += f"- {f['titolo']} — {nome_cl}\n"
         if prossimi:
             risposta += f"\n**Prossimi 7 giorni ({len(prossimi)}):**\n"
             for f in prossimi[:5]:
-                cliente = f.get("clienti", {})
-                nome_cl = cliente.get("ragione_sociale") or \
-                    f"{cliente.get('nome','')} {cliente.get('cognome','')}".strip()
+                cl = f.get("clienti", {})
+                nome_cl = cl.get("ragione_sociale") or \
+                    f"{cl.get('nome','')} {cl.get('cognome','')}".strip()
                 risposta += f"- {f['titolo']} — {nome_cl} ({f.get('followup_data','')})\n"
         return risposta
 
@@ -466,19 +316,17 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
             return "Nessun evento in programma."
         risposta = f"**Prossimi eventi ({len(eventi)}):**\n"
         for ev in eventi[:5]:
-            data_str = (ev.get("data_inizio") or "")[:10]
-            risposta += f"- {ev['titolo']} — {data_str} ({ev.get('stato','').upper()})\n"
+            data_ev = (ev.get("data_inizio") or "")[:10]
+            risposta += f"- {ev['titolo']} — {data_ev} ({ev.get('stato','').upper()})\n"
         return risposta
 
     # ── CERCA CLIENTE ──
     if intent == "cerca_cliente":
-        persone = entita.get("persone", []) + entita.get("organizzazioni", [])
-        nome = dati_extra.get("nome_cliente") or (persone[0] if persone else None)
-        if not nome:
+        if not nome_cliente:
             return "CHIEDI:nome_cliente:Chi stai cercando?"
-        clienti = lista_clienti(filtro_testo=nome)
+        clienti = lista_clienti(filtro_testo=nome_cliente)
         if not clienti:
-            return f"Nessun cliente trovato con '{nome}'."
+            return f"Nessun cliente trovato con '{nome_cliente}'."
         if len(clienti) == 1:
             c = clienti[0]
             if c["tipo"] == "giuridica":
@@ -502,28 +350,14 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
                 c.get("ragione_sociale") or
                 f"{c.get('nome','')} {c.get('cognome','')}".strip()
             )
-        return (
-            f"Ho trovato {len(clienti)} clienti: {', '.join(nomi)}. "
-            f"Vuoi più dettagli su uno?"
-        )
+        return f"Ho trovato {len(clienti)} clienti: {', '.join(nomi)}. Quale?"
 
     # ── CREA NOTA ──
     if intent == "crea_nota":
         if not can_edit(utente):
             return "Non hai i permessi per creare note."
-        testo_nota = dati_extra.get("testo_nota")
         if not testo_nota:
-            t = entita.get("testo_originale", "")
-            for keyword in ["nota:", "appunto:", "segna:", "ricordami:"]:
-                if keyword in t.lower():
-                    testo_nota = t[t.lower().index(keyword) + len(keyword):].strip()
-                    break
-            if not testo_nota:
-                match_vir = re.findall(r'"([^"]+)"', t)
-                if match_vir:
-                    testo_nota = match_vir[0]
-            if not testo_nota:
-                return "CHIEDI:testo_nota:Cosa vuoi annotare?"
+            return "CHIEDI:testo_nota:Cosa vuoi annotare?"
         crea_nota(utente["id"], testo_nota)
         return f"Nota salvata: '{testo_nota}'"
 
@@ -531,27 +365,17 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
     if intent == "invia_messaggio":
         if not can_edit(utente):
             return "Non hai i permessi per inviare messaggi."
-        persone = entita.get("persone", [])
-        nome_dest = dati_extra.get("nome_destinatario") or \
-            (persone[0] if persone else None)
         if not nome_dest:
             return "CHIEDI:nome_destinatario:A chi vuoi mandare il messaggio?"
         destinatario, domanda = resolve_utente(nome_dest, utente)
         if domanda and not destinatario:
             return f"CHIEDI:nome_destinatario:{domanda}"
-        corpo = dati_extra.get("corpo_messaggio")
-        if not corpo:
-            t = entita.get("testo_originale", "")
-            match_vir = re.findall(r'"([^"]+)"', t)
-            if match_vir:
-                corpo = match_vir[-1]
-            if not corpo:
-                return (
-                    f"CHIEDI:corpo_messaggio:"
-                    f"Cosa vuoi scrivere a {destinatario['nome']}?"
-                )
-        oggetto = dati_extra.get("oggetto_messaggio", "")
-        invia_messaggio(utente["id"], destinatario["id"], oggetto, corpo)
+        if not corpo_msg:
+            return (
+                f"CHIEDI:corpo_messaggio:"
+                f"Cosa vuoi scrivere a {destinatario['nome']}?"
+            )
+        invia_messaggio(utente["id"], destinatario["id"], "", corpo_msg)
         return (
             f"Messaggio inviato a "
             f"{destinatario['nome']} {destinatario['cognome']}."
@@ -562,55 +386,47 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
         if not can_edit(utente):
             return "Non hai i permessi per creare appuntamenti."
 
-        data_ev = dati_extra.get("data")
-        ora_ev = dati_extra.get("ora")
-        ora_fine_ev = dati_extra.get("ora_fine")
-        titolo = dati_extra.get("titolo")
-        luogo = dati_extra.get("luogo") or \
-            (entita["luoghi"][0] if entita.get("luoghi") else "")
-
+        # Titolo automatico se non presente
         if not titolo:
-            persone = entita.get("persone", [])
-            if persone:
-                titolo = f"Incontro con {persone[0]}"
+            if nome_persona:
+                titolo = f"Incontro con {nome_persona}"
             else:
                 return "CHIEDI:titolo:Come vuoi chiamare questo appuntamento?"
 
-        if not data_ev:
+        if not data_str:
             return "CHIEDI:data:Quando? (es. domani, lunedì, 15/06)"
 
         try:
-            if isinstance(data_ev, str):
-                if DATEPARSER_OK:
-                    parsed = dateparser.parse(
-                        data_ev, languages=["it"],
-                        settings={"PREFER_DATES_FROM": "future"}
-                    )
-                    data_ev = parsed.date() if parsed else date.fromisoformat(data_ev)
-                else:
-                    data_ev = date.fromisoformat(data_ev)
-
-            if ora_ev and isinstance(ora_ev, str):
-                parts = ora_ev.replace(".", ":").split(":")
-                from datetime import time
-                ora_ev = time(int(parts[0]), int(parts[1]))
-
-            dt_inizio = datetime.combine(
-                data_ev,
-                ora_ev if ora_ev else datetime.strptime("09:00", "%H:%M").time()
-            )
-
-            if ora_fine_ev:
-                if isinstance(ora_fine_ev, str):
-                    parts = ora_fine_ev.replace(".", ":").split(":")
-                    from datetime import time
-                    ora_fine_ev = time(int(parts[0]), int(parts[1]))
-                dt_fine = datetime.combine(data_ev, ora_fine_ev)
-            else:
-                dt_fine = datetime(
-                    dt_inizio.year, dt_inizio.month, dt_inizio.day,
-                    min(dt_inizio.hour + 1, 23), dt_inizio.minute
+            # Parsa data
+            if DATEPARSER_OK:
+                parsed_date = dateparser.parse(
+                    data_str, languages=["it"],
+                    settings={"PREFER_DATES_FROM": "future"}
                 )
+                data_ev = parsed_date.date() if parsed_date else date.fromisoformat(data_str)
+            else:
+                data_ev = date.fromisoformat(data_str)
+
+            # Parsa orario inizio
+            if ora_inizio_str:
+                parts = ora_inizio_str.replace(".", ":").split(":")
+                from datetime import time
+                ora_inizio = time(int(parts[0]), int(parts[1]))
+            else:
+                from datetime import time
+                ora_inizio = time(9, 0)
+
+            # Parsa orario fine
+            if ora_fine_str:
+                parts = ora_fine_str.replace(".", ":").split(":")
+                from datetime import time
+                ora_fine = time(int(parts[0]), int(parts[1]))
+            else:
+                from datetime import time
+                ora_fine = time(min(ora_inizio.hour + 1, 23), ora_inizio.minute)
+
+            dt_inizio = datetime.combine(data_ev, ora_inizio)
+            dt_fine = datetime.combine(data_ev, ora_fine)
 
         except Exception as e:
             return f"Non sono riuscito a interpretare la data/ora: {e}"
@@ -636,26 +452,17 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
             )
         return "Errore nella creazione dell'appuntamento."
 
-    # ── REGISTRA CONTATTO NEL DIARIO ──
+    # ── REGISTRA CONTATTO ──
     if intent == "registra_contatto":
         if not can_edit(utente):
             return "Non hai i permessi per registrare contatti."
-        persone = entita.get("persone", []) + entita.get("organizzazioni", [])
-        nome_cliente = dati_extra.get("nome_cliente") or \
-            (persone[0] if persone else None)
         if not nome_cliente:
             return "CHIEDI:nome_cliente:Con quale cliente hai avuto questo contatto?"
         cliente, domanda = resolve_cliente(nome_cliente, utente)
         if domanda and not cliente:
             return f"CHIEDI:nome_cliente:{domanda}"
-        descrizione = dati_extra.get("descrizione")
         if not descrizione:
-            t = entita.get("testo_originale", "")
-            match_vir = re.findall(r'"([^"]+)"', t)
-            if match_vir:
-                descrizione = match_vir[-1]
-            if not descrizione:
-                return "CHIEDI:descrizione:Di cosa avete parlato?"
+            return "CHIEDI:descrizione:Di cosa avete parlato?"
         crea_voce_diario({
             "cliente_id": cliente["id"],
             "tipo": "nota",
@@ -669,28 +476,28 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
 
     # ── DOMANDA GENERICA ──
     if intent == "domanda_generica":
-        testo = entita.get("testo_originale", "").lower()
-        if "quanti clienti" in testo or "numero clienti" in testo:
+        testo_orig = dati_extra.get("testo_originale", "").lower()
+        if "quanti clienti" in testo_orig or "numero clienti" in testo_orig:
             clienti = lista_clienti()
             attivi = [c for c in clienti if c.get("stato") == "attivo"]
             prospect = [c for c in clienti if c.get("stato") == "prospect"]
             return (
-                f"Hai **{len(clienti)} clienti** totali nel CRM.\n"
+                f"Hai **{len(clienti)} clienti** totali.\n"
                 f"- Attivi: {len(attivi)}\n"
                 f"- Prospect: {len(prospect)}\n"
                 f"- Altri: {len(clienti) - len(attivi) - len(prospect)}"
             )
-        if "follow" in testo or "scadenz" in testo or "da fare" in testo:
-            oggi = followup_oggi()
+        if "follow" in testo_orig or "scadenz" in testo_orig:
+            oggi_fu = followup_oggi()
             prossimi = followup_prossimi7()
             return (
-                f"Hai **{len(oggi)} follow-up oggi** e "
+                f"Hai **{len(oggi_fu)} follow-up oggi** e "
                 f"**{len(prossimi)} nei prossimi 7 giorni**."
             )
-        if "eventi" in testo or "catering" in testo:
+        if "eventi" in testo_orig:
             eventi = lista_eventi_catering()
             return f"Ci sono **{len(eventi)} eventi** nel sistema."
-        if "messaggi" in testo or "non letti" in testo:
+        if "messaggi" in testo_orig:
             non_letti = lista_messaggi_non_letti(utente["id"])
             return f"Hai **{len(non_letti)} messaggi non letti**."
         return (
@@ -708,97 +515,102 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
 
 # ── PROCESSA MESSAGGIO ────────────────────────────────
 
-def processa_messaggio(testo: str, utente: dict, modelli) -> str:
+def processa_messaggio(testo: str, utente: dict) -> str:
+    """Processa un messaggio gestendo lo stato multi-turn."""
     chat_state = st.session_state.get("assistente_state", {})
     pending_intent = chat_state.get("pending_intent")
-    pending_entities = chat_state.get("pending_entities", {})
+    pending_estratto = chat_state.get("pending_estratto", {})
+    pending_dati = chat_state.get("pending_dati", {})
     pending_field = chat_state.get("pending_field")
-    testo_originale = chat_state.get("testo_originale", testo)
 
     if pending_intent and pending_field:
+        # L'utente sta rispondendo a una domanda specifica
         risposta_pulita = testo.strip()
 
-        if pending_field == "data" and DATEPARSER_OK:
-            # Prova a parsare la data dalla risposta
-            estratti = _estrai_data_orari_smart(risposta_pulita)
-            if estratti["data"]:
-                pending_entities["data"] = estratti["data"]
-                if estratti["ora"] and not pending_entities.get("ora"):
-                    pending_entities["ora"] = estratti["ora"]
-                if estratti["ora_fine"] and not pending_entities.get("ora_fine"):
-                    pending_entities["ora_fine"] = estratti["ora_fine"]
+        if pending_field == "data":
+            if DATEPARSER_OK:
+                try:
+                    parsed = dateparser.parse(
+                        risposta_pulita, languages=["it"],
+                        settings={"PREFER_DATES_FROM": "future"}
+                    )
+                    if parsed:
+                        pending_dati["data"] = parsed.date().strftime("%Y-%m-%d")
+                        # Estrai anche orari dalla risposta
+                        orari = re.findall(r'\b(\d{1,2})[:\.](\d{2})\b', risposta_pulita)
+                        orari_interi = re.findall(
+                            r'(?:alle|dalle|ore)\s+(\d{1,2})(?![:\.\d])',
+                            risposta_pulita.lower()
+                        )
+                        tutti_orari = []
+                        for h, m in orari:
+                            tutti_orari.append(f"{int(h):02d}:{m}")
+                        for h in orari_interi:
+                            s = f"{int(h):02d}:00"
+                            if s not in tutti_orari:
+                                tutti_orari.append(s)
+                        tutti_orari.sort()
+                        if len(tutti_orari) >= 2:
+                            pending_dati["ora_inizio"] = tutti_orari[0]
+                            pending_dati["ora_fine"] = tutti_orari[1]
+                        elif len(tutti_orari) == 1:
+                            pending_dati["ora_inizio"] = tutti_orari[0]
+                    else:
+                        return (
+                            "Non ho capito la data. "
+                            "Puoi dirmi quando? (es. domani, lunedì, 15/06)"
+                        )
+                except:
+                    return "Non ho capito la data. Prova con: domani, lunedì, 15/06"
             else:
-                return (
-                    "Non ho capito la data. "
-                    "Puoi dirmi quando? (es. domani, lunedì 9 giugno, 15/06)"
-                )
+                pending_dati["data"] = risposta_pulita
 
         elif pending_field == "titolo":
-            pending_entities["titolo"] = risposta_pulita
-
+            pending_dati["titolo"] = risposta_pulita
         elif pending_field == "nome_destinatario":
-            pending_entities["nome_destinatario"] = risposta_pulita
-
+            pending_dati["nome_destinatario"] = risposta_pulita
         elif pending_field == "nome_cliente":
-            pending_entities["nome_cliente"] = risposta_pulita
-
+            pending_dati["nome_cliente"] = risposta_pulita
         elif pending_field == "corpo_messaggio":
-            pending_entities["corpo_messaggio"] = risposta_pulita
-
+            pending_dati["corpo_messaggio"] = risposta_pulita
         elif pending_field == "descrizione":
-            pending_entities["descrizione"] = risposta_pulita
-
+            pending_dati["descrizione"] = risposta_pulita
         elif pending_field == "testo_nota":
-            pending_entities["testo_nota"] = risposta_pulita
-
+            pending_dati["testo_nota"] = risposta_pulita
         else:
-            pending_entities[pending_field] = risposta_pulita
+            pending_dati[pending_field] = risposta_pulita
 
         st.session_state.assistente_state = {
             "pending_intent": pending_intent,
-            "pending_entities": pending_entities,
+            "pending_estratto": pending_estratto,
+            "pending_dati": pending_dati,
             "pending_field": None,
-            "testo_originale": testo_originale,
         }
 
-        risposta = esegui_azione(
-            pending_intent,
-            {"testo_originale": testo_originale},
-            utente,
-            pending_entities
-        )
+        # Ricostruisci estratto con intent corretto
+        pending_estratto["intent"] = pending_intent
+        pending_dati["testo_originale"] = chat_state.get("testo_originale", testo)
+        risposta = esegui_azione(pending_estratto, utente, pending_dati)
 
     else:
-        # Nuova richiesta
-        intent, score = classifica_intent(testo, modelli)
-        entita = estrai_entita(testo)
+        # Nuova richiesta — usa Groq o fallback regex
+        estratto = estrai_con_groq(testo)
 
-        dati_extra = {}
+        if estratto is None:
+            print("[ASSISTENTE] Groq non disponibile — uso regex")
+            estratto = estrai_con_regex(testo)
 
-        # Estrai titolo da virgolette
-        match_virgolette = re.findall(r'"([^"]+)"', testo)
-        if match_virgolette:
-            dati_extra["titolo"] = match_virgolette[0]
-
-        # Estrai data e orari in modo smart
-        estratti = _estrai_data_orari_smart(testo)
-        if estratti["data"]:
-            dati_extra["data"] = estratti["data"]
-        if estratti["ora"]:
-            dati_extra["ora"] = estratti["ora"]
-        if estratti["ora_fine"]:
-            dati_extra["ora_fine"] = estratti["ora_fine"]
+        estratto["testo_originale"] = testo
 
         st.session_state.assistente_state = {
-            "pending_intent": intent,
-            "pending_entities": {**dati_extra},
+            "pending_intent": estratto.get("intent"),
+            "pending_estratto": estratto,
+            "pending_dati": {},
             "pending_field": None,
             "testo_originale": testo,
-            "last_intent": intent,
-            "last_score": score,
         }
 
-        risposta = esegui_azione(intent, entita, utente, dati_extra)
+        risposta = esegui_azione(estratto, utente, {"testo_originale": testo})
 
     # Gestisci chiarimenti
     if risposta.startswith("CHIEDI:"):
@@ -810,6 +622,7 @@ def processa_messaggio(testo: str, utente: dict, modelli) -> str:
         st.session_state.assistente_state = state
         return domanda
 
+    # Reset pending field dopo azione completata
     state = st.session_state.get("assistente_state", {})
     state["pending_field"] = None
     st.session_state.assistente_state = state
@@ -854,14 +667,13 @@ def pagina_assistente(utente):
     st.title("Assistente AI")
     st.markdown("---")
 
-    with st.spinner("Carico i modelli AI..."):
-        modelli = carica_modelli()
-
-    model, _, _ = modelli
-    if model is None:
-        st.caption(
-            "Modalità regex attiva — installa sentence-transformers "
-            "per NLU completo."
+    # Controlla se Groq è configurato
+    groq_ok = bool(st.secrets.get("GROQ_API_KEY", ""))
+    if not groq_ok:
+        st.warning(
+            "GROQ_API_KEY non configurata nei secrets. "
+            "L'assistente funziona in modalità base (regex). "
+            "Aggiungi la chiave per funzionalità complete."
         )
 
     col_sp, col_reset = st.columns([5, 1])
@@ -873,7 +685,7 @@ def pagina_assistente(utente):
 
     st.markdown("---")
 
-    # Inizializza history con benvenuto
+    # Inizializza history
     if "assistente_history" not in st.session_state or \
             not st.session_state.assistente_history:
         st.session_state.assistente_history = []
@@ -930,17 +742,17 @@ def pagina_assistente(utente):
             invia = st.form_submit_button("Invia", use_container_width=True)
 
     if invia and user_input.strip():
-        _processa_e_aggiungi(user_input, utente, modelli)
+        _processa_e_aggiungi(user_input, utente)
         st.rerun()
 
 
-def _processa_e_aggiungi(testo: str, utente: dict, modelli):
+def _processa_e_aggiungi(testo: str, utente: dict):
     st.session_state.assistente_history.append({
         "role": "user",
         "content": testo
     })
 
-    risposta = processa_messaggio(testo, utente, modelli)
+    risposta = processa_messaggio(testo, utente)
 
     st.session_state.assistente_history.append({
         "role": "assistant",
