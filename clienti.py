@@ -34,6 +34,15 @@ def nome_display(c):
         return c.get("ragione_sociale") or "—"
     return f"{c.get('nome','')} {c.get('cognome','')}".strip() or "—"
 
+def pagina_clienti(utente):
+    st.title("Clienti")
+    
+    # DEBUG temporaneo
+    from db import lista_clienti as _lc
+    test = _lc()
+    st.write(f"DEBUG totale clienti: {len(test)}")
+    st.write(f"DEBUG tipi: {[c.get('tipo') for c in test]}")
+
 
 def pagina_clienti(utente):
     st.title("Clienti")
