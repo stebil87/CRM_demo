@@ -153,7 +153,6 @@ def _form_nuovo_cliente(utente):
 
     with st.form("form_nuovo_cliente"):
         dati = _form_campi(tipo=tipo, d={}, key_prefix="new")
-        # Campo nascosto per trasmettere il tipo dentro il form
         submitted = st.form_submit_button("Crea cliente", use_container_width=True)
 
     if submitted:
@@ -169,10 +168,15 @@ def _form_nuovo_cliente(utente):
             st.error(" · ".join(errori))
         else:
             dati["tipo"] = tipo_finale
-            crea_cliente(dati, utente["id"])
-            st.success("Cliente creato.")
-            st.session_state.new_cliente_tipo = "fisica"
-            st.rerun()
+            st.write(f"DEBUG dati: {dati}")
+            risultato = crea_cliente(dati, utente["id"])
+            st.write(f"DEBUG risultato: {risultato}")
+            if risultato:
+                st.success("Cliente creato.")
+                st.session_state.new_cliente_tipo = "fisica"
+                st.rerun()
+            else:
+                st.error("Errore nel salvataggio.")
 
 
 def _form_modifica_cliente(c, utente):
