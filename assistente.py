@@ -24,88 +24,209 @@ try:
 except:
     DATEPARSER_OK = False
 
+# ── ESEMPI PER INTENT (similarity search) ─────────────
+
+INTENT_ESEMPI = {
+    "crea_appuntamento": [
+        "crea un appuntamento domani alle 10",
+        "metti un meeting lunedì alle 15",
+        "fissa una riunione con Rossi venerdì",
+        "aggiungi un incontro nel calendario",
+        "crea un appuntamento nel mio calendario per domani alle 11",
+        "segna una riunione per la prossima settimana",
+        "prenota un appuntamento con il cliente",
+        "metti in agenda un incontro",
+        "crea appuntamento ore 14",
+        "riunione domani mattina alle 9",
+        "metti appuntamento per domani",
+        "calendario: riunione giovedì alle 10",
+    ],
+    "invia_messaggio": [
+        "manda un messaggio a Giorgio",
+        "scrivi a Stefano che la riunione è rinviata",
+        "invia un messaggio interno a Giovanni",
+        "contatta Marco e digli di chiamarmi",
+        "avvisa il team della riunione",
+        "manda una nota a Luca",
+        "scrivi a tutti che c'è una riunione",
+        "invia messaggio a Giorgio che dice ciao",
+        "manda a Luca che ci vediamo domani",
+    ],
+    "cerca_cliente": [
+        "cerca il cliente Rossi",
+        "trova informazioni su Bianchi",
+        "chi è Mario Verdi",
+        "dammi i dettagli del cliente Ferrari",
+        "trova il contatto Gianella",
+        "cerca Stefano Billeter",
+        "info sul cliente ABC SA",
+        "mostrami i dati di Aleandro",
+        "cerca cliente per nome",
+        "trovami il cliente",
+    ],
+    "crea_cliente": [
+        "aggiungi un nuovo cliente",
+        "crea un nuovo contatto",
+        "inserisci il cliente Mario Rossi",
+        "registra un nuovo cliente di nome Bianchi",
+        "nuovo cliente da aggiungere",
+        "aggiungi contatto nuovo",
+    ],
+    "crea_offerta": [
+        "crea una nuova offerta",
+        "genera un preventivo per il cliente",
+        "prepara una proposta commerciale",
+        "fai un preventivo per l'evento",
+        "nuova offerta per Rossi",
+        "crea preventivo",
+    ],
+    "mostra_followup": [
+        "mostrami i follow-up di oggi",
+        "cosa devo fare oggi",
+        "quali sono le scadenze",
+        "chi devo richiamare",
+        "promemoria di oggi",
+        "follow up in sospeso",
+        "cosa ho da fare questa settimana",
+        "mostrami i promemoria",
+        "scadenze di oggi",
+        "attività pendenti",
+    ],
+    "crea_evento": [
+        "crea un evento catering",
+        "nuovo evento per il banchetto",
+        "aggiungi un evento catering per sabato",
+        "organizza un ricevimento",
+        "crea evento per matrimonio",
+        "nuovo evento catering",
+    ],
+    "mostra_eventi": [
+        "mostrami gli eventi in programma",
+        "quali eventi ci sono",
+        "lista degli eventi catering",
+        "eventi prossimi",
+        "cosa c'è in calendario per il catering",
+        "prossimi eventi",
+    ],
+    "registra_contatto": [
+        "ho chiamato il cliente Rossi",
+        "registra che ho parlato con Bianchi",
+        "ho incontrato Mario oggi",
+        "segna nel diario che ho sentito il cliente",
+        "ho avuto una riunione con Ferrari",
+        "registra la conversazione con Gianella",
+        "ho parlato con il cliente",
+        "nota nel diario",
+    ],
+    "mostra_messaggi": [
+        "mostrami i messaggi non letti",
+        "ho nuovi messaggi",
+        "controlla la posta",
+        "quanti messaggi non letti ho",
+        "inbox messaggi",
+        "messaggi in arrivo",
+    ],
+    "crea_nota": [
+        "crea una nota",
+        "aggiungi un appunto",
+        "ricordami di chiamare domani",
+        "segna questo appunto",
+        "nota rapida",
+        "post-it con scritto riunione",
+        "annota questo",
+    ],
+    "domanda_generica": [
+        "quanti clienti ho",
+        "statistiche del CRM",
+        "riepilogo delle attività",
+        "quante offerte ci sono",
+        "qual è il fatturato",
+        "dimmi qualcosa sul CRM",
+        "quanti clienti attivi",
+    ],
+    "saluto": [
+        "ciao",
+        "buongiorno",
+        "buonasera",
+        "cosa puoi fare",
+        "come funzioni",
+        "aiuto",
+        "help",
+        "cosa sei",
+        "presentati",
+        "chi sei",
+    ],
+}
+
+
 # ── CARICA MODELLI ────────────────────────────────────
 
 @st.cache_resource
 def carica_modelli():
-    """Carica i modelli una volta sola e li mantiene in cache."""
+    """Carica sentence-transformer per similarity search."""
     try:
-        from transformers import pipeline
-        import torch
+        from sentence_transformers import SentenceTransformer
+        import numpy as np
 
-        device = 0 if torch.cuda.is_available() else -1
-
-        # Intent classifier — zero-shot multilingue
-        intent_clf = pipeline(
-            "zero-shot-classification",
-            model="MoritzLaurer/mDeBERTa-v3-base-mnli-xnli",
-            device=device
+        model = SentenceTransformer(
+            "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
         )
 
-        # NER per entità italiane
-        try:
-            ner = pipeline(
-                "token-classification",
-                model="osiria/deberta-italian-ner",
-                aggregation_strategy="simple",
-                device=device
-            )
-        except:
-            ner = None
+        # Pre-calcola embeddings degli esempi
+        esempi_flat = []
+        labels_flat = []
+        for intent, frasi in INTENT_ESEMPI.items():
+            for frase in frasi:
+                esempi_flat.append(frase)
+                labels_flat.append(intent)
 
-        return intent_clf, ner
+        embeddings = model.encode(esempi_flat, convert_to_numpy=True)
+        print(f"[ASSISTENTE] Modello caricato — {len(esempi_flat)} esempi indicizzati")
+        return model, embeddings, labels_flat
 
     except Exception as e:
-        print(f"Errore caricamento modelli: {e}")
-        return None, None
-
-
-# ── INTENT LABELS ─────────────────────────────────────
-
-INTENT_LABELS = {
-    "crea_appuntamento":   "creare un appuntamento o riunione nel calendario",
-    "invia_messaggio":     "inviare un messaggio interno a un collega",
-    "cerca_cliente":       "cercare o trovare informazioni su un cliente",
-    "crea_cliente":        "aggiungere un nuovo cliente",
-    "crea_offerta":        "creare una nuova offerta commerciale",
-    "mostra_followup":     "vedere i follow-up di oggi o della settimana",
-    "crea_evento":         "creare un evento catering",
-    "mostra_eventi":       "vedere gli eventi in programma",
-    "registra_contatto":   "registrare una chiamata email o riunione nel diario",
-    "mostra_messaggi":     "vedere i messaggi non letti o ricevuti",
-    "crea_nota":           "aggiungere una nota rapida",
-    "domanda_generica":    "rispondere a una domanda generica sul CRM o sull'azienda",
-    "saluto":              "salutare o chiedere aiuto",
-}
-
-INTENT_KEYS = list(INTENT_LABELS.keys())
-INTENT_DESCRIPTIONS = list(INTENT_LABELS.values())
+        print(f"[ASSISTENTE] Modelli non disponibili: {e} — uso modalità regex")
+        return None, None, None
 
 
 # ── CLASSIFICATORE INTENT ─────────────────────────────
 
-def classifica_intent(testo: str, intent_clf) -> tuple[str, float]:
-    """Classifica l'intent dell'input utente."""
-    if intent_clf is None:
+def classifica_intent(testo: str, modelli) -> tuple[str, float]:
+    """Classifica intent con similarity search o fallback regex."""
+    model, embeddings_esempi, labels = modelli
+
+    if model is None or embeddings_esempi is None:
         return _classifica_regex(testo)
 
     try:
-        result = intent_clf(
-            testo,
-            candidate_labels=INTENT_DESCRIPTIONS,
-            hypothesis_template="L'utente vuole {}.",
-        )
-        idx = INTENT_DESCRIPTIONS.index(result["labels"][0])
-        intent = INTENT_KEYS[idx]
-        score = result["scores"][0]
-        return intent, score
+        import numpy as np
+        from sklearn.metrics.pairwise import cosine_similarity
+
+        query_emb = model.encode([testo], convert_to_numpy=True)
+        sims = cosine_similarity(query_emb, embeddings_esempi)[0]
+
+        top_idx = np.argsort(sims)[::-1][:5]
+
+        # Voto pesato sui top-5
+        voti = {}
+        for idx in top_idx:
+            intent = labels[idx]
+            score = float(sims[idx])
+            voti[intent] = voti.get(intent, 0) + score
+
+        best_intent = max(voti, key=lambda k: voti[k])
+        best_score = float(sims[top_idx[0]])
+
+        print(f"[INTENT] '{testo[:50]}' → {best_intent} ({best_score:.2f})")
+        return best_intent, best_score
+
     except Exception as e:
-        print(f"Errore classificazione: {e}")
+        print(f"[INTENT] Errore similarity: {e} — uso regex")
         return _classifica_regex(testo)
 
 
 def _classifica_regex(testo: str) -> tuple[str, float]:
-    """Fallback regex con scoring — vince chi ha più match."""
+    """Fallback regex con scoring."""
     t = testo.lower()
 
     patterns = {
@@ -115,80 +236,65 @@ def _classifica_regex(testo: str) -> tuple[str, float]:
             r"crea.*calendario", r"segna.*calendario"
         ],
         "invia_messaggio": [
-            r"messaggio", r"scrivi a", r"manda", r"contatta",
-            r"notifica", r"avvisa", r"di.*a\s+\w+"
+            r"messaggio", r"scrivi a", r"manda\s+a", r"invia.*a",
+            r"contatta", r"avvisa", r"notifica"
         ],
         "cerca_cliente": [
             r"^cerca\b", r"^trova\b", r"chi è\b", r"info su\b",
-            r"dettagli su\b", r"dammi info", r"dimmi di"
+            r"dettagli su\b", r"dammi info", r"dimmi di\s+\w+"
         ],
         "crea_cliente": [
             r"nuovo cliente", r"aggiungi cliente", r"crea cliente",
             r"inserisci cliente", r"registra cliente"
         ],
         "crea_offerta": [
-            r"offerta", r"preventivo", r"proposta commerciale", r"quotazione"
+            r"offerta", r"preventivo", r"proposta commerciale"
         ],
         "mostra_followup": [
             r"follow.?up", r"cosa devo fare", r"promemoria",
             r"scadenze", r"da fare oggi", r"richiamare"
         ],
         "crea_evento": [
-            r"evento catering", r"catering", r"banchetto",
-            r"ricevimento", r"nuovo evento"
+            r"evento catering", r"banchetto", r"ricevimento"
         ],
         "mostra_eventi": [
-            r"eventi in programma", r"prossimi eventi",
-            r"lista eventi", r"che eventi"
+            r"eventi in programma", r"prossimi eventi", r"lista eventi"
         ],
         "registra_contatto": [
             r"ho chiamato", r"ho parlato", r"ho incontrato",
-            r"diario", r"registra contatto", r"ho sentito"
+            r"diario", r"ho sentito"
         ],
         "mostra_messaggi": [
-            r"messaggi non letti", r"posta", r"inbox",
-            r"ho messaggi", r"nuovi messaggi"
+            r"messaggi non letti", r"posta", r"inbox"
         ],
         "crea_nota": [
-            r"nota:", r"appunto:", r"ricordami", r"segna questo",
-            r"post.?it", r"nota rapida"
+            r"nota:", r"appunto", r"ricordami", r"post.?it"
         ],
         "saluto": [
             r"^ciao\b", r"^buongiorno\b", r"^buonasera\b",
-            r"cosa puoi fare", r"come funzioni", r"^help\b", r"^aiuto\b"
-        ],
-        "mostra_followup": [
-            r"follow.?up", r"scadenze oggi", r"cosa devo fare oggi"
+            r"cosa puoi fare", r"come funzioni", r"^help\b"
         ],
         "domanda_generica": [
-            r"quanti clienti", r"quante offerte", r"statistiche",
-            r"riepilogo", r"dashboard"
+            r"quanti clienti", r"quante offerte", r"statistiche", r"fatturato"
         ],
     }
 
     scores = {intent: 0 for intent in patterns}
-
     for intent, pats in patterns.items():
         for pat in pats:
             if re.search(pat, t):
                 scores[intent] += 1
 
-    # Vince chi ha più match
-    best_intent = max(scores, key=lambda k: scores[k])
-    best_score = scores[best_intent]
-
-    if best_score == 0:
+    best = max(scores, key=lambda k: scores[k])
+    if scores[best] == 0:
         return "domanda_generica", 0.4
-
-    # Normalizza score
-    confidence = min(0.5 + best_score * 0.15, 0.95)
-    return best_intent, confidence
+    return best, min(0.5 + scores[best] * 0.15, 0.95)
 
 
 # ── ENTITY EXTRACTION ─────────────────────────────────
 
-def estrai_entita(testo: str, ner_model) -> dict:
-    """Estrae entità dal testo."""
+def estrai_entita(testo: str) -> dict:
+    """Estrae entità dal testo con regex e dateparser."""
     entita = {
         "persone": [],
         "luoghi": [],
@@ -198,30 +304,10 @@ def estrai_entita(testo: str, ner_model) -> dict:
         "testo_originale": testo,
     }
 
-    # Date con dateparser
     if DATEPARSER_OK:
         entita["data"], entita["ora"] = _estrai_data_ora(testo)
 
-    # NER per persone e organizzazioni
-    if ner_model:
-        try:
-            risultati = ner_model(testo)
-            for r in risultati:
-                entita_tipo = r.get("entity_group", "")
-                parola = r.get("word", "").strip()
-                if entita_tipo == "PER" and parola:
-                    entita["persone"].append(parola)
-                elif entita_tipo == "ORG" and parola:
-                    entita["organizzazioni"].append(parola)
-                elif entita_tipo == "LOC" and parola:
-                    entita["luoghi"].append(parola)
-        except:
-            pass
-
-    # Fallback regex per nomi comuni
-    if not entita["persone"] and not entita["organizzazioni"]:
-        entita = _estrai_entita_regex(testo, entita)
-
+    entita = _estrai_entita_regex(testo, entita)
     return entita
 
 
@@ -229,32 +315,22 @@ def _estrai_data_ora(testo: str) -> tuple:
     """Estrae data e ora dal testo."""
     try:
         import dateparser
-        settings = {
-            "PREFER_DATES_FROM": "future",
-            "RETURN_AS_TIMEZONE_AWARE": False,
-        }
-
-        # Prova a parsare la data
         parsed = dateparser.parse(
             testo,
             languages=["it"],
-            settings=settings
+            settings={"PREFER_DATES_FROM": "future"}
         )
-
         if parsed:
             data = parsed.date()
-            ora = parsed.time() if parsed.hour != 0 or parsed.minute != 0 else None
+            ora = parsed.time() if (parsed.hour != 0 or parsed.minute != 0) else None
             return data, ora
-
     except:
         pass
-
     return None, None
 
 
 def _estrai_entita_regex(testo: str, entita: dict) -> dict:
-    """Fallback regex per estrarre nomi."""
-    # Pattern per "a/con/per [Nome Cognome]"
+    """Estrae nomi con regex."""
     patterns = [
         r"(?:a|con|per|da|verso)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
         r"(?:il signor|la signora|dott\.?|ing\.?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
@@ -266,63 +342,46 @@ def _estrai_entita_regex(testo: str, entita: dict) -> dict:
     return entita
 
 
-# ── RESOLVER — disambigua entità ──────────────────────
+# ── RESOLVER ──────────────────────────────────────────
 
 def resolve_cliente(nome: str, utente_corrente) -> tuple:
-    """
-    Cerca il cliente per nome.
-    Ritorna (cliente, domanda) — se domanda è None, il cliente è univoco.
-    """
     if not nome:
         return None, "Per quale cliente?"
-
     clienti = lista_clienti(filtro_testo=nome)
-
     if len(clienti) == 0:
         return None, f"Non ho trovato nessun cliente con '{nome}'. Vuoi che lo crei?"
-
     if len(clienti) == 1:
         return clienti[0], None
-
-    # Più clienti — chiedi quale
     nomi = []
     for c in clienti[:5]:
-        if c["tipo"] == "giuridica":
-            nomi.append(c.get("ragione_sociale", "—"))
-        else:
-            nomi.append(f"{c.get('nome','')} {c.get('cognome','')}".strip())
-
+        nomi.append(
+            c.get("ragione_sociale") or
+            f"{c.get('nome','')} {c.get('cognome','')}".strip()
+        )
     return None, f"Ho trovato più clienti: {', '.join(nomi)}. Quale intendi?"
 
 
 def resolve_utente(nome: str, utente_corrente) -> tuple:
-    """Cerca un utente interno per nome."""
     if not nome:
         return None, "A chi vuoi mandare il messaggio?"
-
     utenti = lista_utenti()
     trovati = [
         u for u in utenti
         if nome.lower() in f"{u['nome']} {u['cognome']}".lower()
         and u["id"] != utente_corrente["id"]
     ]
-
     if len(trovati) == 0:
         return None, f"Non ho trovato nessun collega con '{nome}'."
-
     if len(trovati) == 1:
         return trovati[0], None
-
     nomi = [f"{u['nome']} {u['cognome']}" for u in trovati[:5]]
     return None, f"Ho trovato: {', '.join(nomi)}. Chi intendi?"
 
 
-# ── EXECUTOR — esegue le azioni ───────────────────────
+# ── EXECUTOR ──────────────────────────────────────────
 
 def esegui_azione(intent: str, entita: dict, utente: dict,
                   dati_extra: dict = None) -> str:
-    """Esegue l'azione corrispondente all'intent."""
-
     dati_extra = dati_extra or {}
 
     # ── SALUTO ──
@@ -344,10 +403,8 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
     if intent == "mostra_followup":
         oggi = followup_oggi()
         prossimi = followup_prossimi7()
-
         if not oggi and not prossimi:
             return "Nessun follow-up in programma per oggi o i prossimi 7 giorni."
-
         risposta = ""
         if oggi:
             risposta += f"**Follow-up di oggi ({len(oggi)}):**\n"
@@ -356,7 +413,6 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
                 nome_cl = cliente.get("ragione_sociale") or \
                     f"{cliente.get('nome','')} {cliente.get('cognome','')}".strip()
                 risposta += f"- {f['titolo']} — {nome_cl}\n"
-
         if prossimi:
             risposta += f"\n**Prossimi 7 giorni ({len(prossimi)}):**\n"
             for f in prossimi[:5]:
@@ -364,7 +420,6 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
                 nome_cl = cliente.get("ragione_sociale") or \
                     f"{cliente.get('nome','')} {cliente.get('cognome','')}".strip()
                 risposta += f"- {f['titolo']} — {nome_cl} ({f.get('followup_data','')})\n"
-
         return risposta
 
     # ── MOSTRA MESSAGGI ──
@@ -372,7 +427,6 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
         non_letti = lista_messaggi_non_letti(utente["id"])
         if not non_letti:
             return "Nessun messaggio non letto."
-
         risposta = f"**Hai {len(non_letti)} messaggi non letti:**\n"
         for m in non_letti[:5]:
             mitt = m.get("mittente") or {}
@@ -385,7 +439,6 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
         eventi = lista_eventi_catering()
         if not eventi:
             return "Nessun evento in programma."
-
         risposta = f"**Prossimi eventi ({len(eventi)}):**\n"
         for ev in eventi[:5]:
             data_str = (ev.get("data_inizio") or "")[:10]
@@ -396,14 +449,11 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
     if intent == "cerca_cliente":
         persone = entita.get("persone", []) + entita.get("organizzazioni", [])
         nome = dati_extra.get("nome_cliente") or (persone[0] if persone else None)
-
         if not nome:
             return "CHIEDI:nome_cliente:Chi stai cercando?"
-
         clienti = lista_clienti(filtro_testo=nome)
         if not clienti:
             return f"Nessun cliente trovato con '{nome}'."
-
         if len(clienti) == 1:
             c = clienti[0]
             if c["tipo"] == "giuridica":
@@ -421,7 +471,6 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
                     f"Tel: {c.get('telefono','—')}\n"
                     f"Stato: {c.get('stato','—').upper()}"
                 )
-
         nomi = []
         for c in clienti[:5]:
             nomi.append(
@@ -437,7 +486,6 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
     if intent == "crea_nota":
         if not can_edit(utente):
             return "Non hai i permessi per creare note."
-
         testo = dati_extra.get("testo_nota")
         if not testo:
             t = entita["testo_originale"]
@@ -445,14 +493,12 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
                 if keyword in t.lower():
                     testo = t[t.lower().index(keyword) + len(keyword):].strip()
                     break
-            # Prova anche con virgolette
             if not testo:
                 match_vir = re.findall(r'"([^"]+)"', t)
                 if match_vir:
                     testo = match_vir[0]
             if not testo:
                 return "CHIEDI:testo_nota:Cosa vuoi annotare?"
-
         crea_nota(utente["id"], testo)
         return f"Nota salvata: '{testo}'"
 
@@ -460,31 +506,25 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
     if intent == "invia_messaggio":
         if not can_edit(utente):
             return "Non hai i permessi per inviare messaggi."
-
         persone = entita.get("persone", [])
         nome_dest = dati_extra.get("nome_destinatario") or \
             (persone[0] if persone else None)
-
         if not nome_dest:
             return "CHIEDI:nome_destinatario:A chi vuoi mandare il messaggio?"
-
         destinatario, domanda = resolve_utente(nome_dest, utente)
         if domanda and not destinatario:
             return f"CHIEDI:nome_destinatario:{domanda}"
-
         corpo = dati_extra.get("corpo_messaggio")
         if not corpo:
-            # Prova a estrarre corpo dal testo originale
             t = entita.get("testo_originale", "")
             match_vir = re.findall(r'"([^"]+)"', t)
             if match_vir:
-                corpo = match_vir[-1]  # Ultimo testo tra virgolette
+                corpo = match_vir[-1]
             if not corpo:
                 return (
                     f"CHIEDI:corpo_messaggio:"
                     f"Cosa vuoi scrivere a {destinatario['nome']}?"
                 )
-
         oggetto = dati_extra.get("oggetto_messaggio", "")
         invia_messaggio(utente["id"], destinatario["id"], oggetto, corpo)
         return f"Messaggio inviato a {destinatario['nome']} {destinatario['cognome']}."
@@ -501,7 +541,6 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
         luogo = dati_extra.get("luogo") or \
             (entita["luoghi"][0] if entita.get("luoghi") else "")
 
-        # Titolo automatico da persone estratte
         if not titolo:
             persone = entita.get("persone", [])
             if persone:
@@ -510,28 +549,23 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
                 return "CHIEDI:titolo:Come vuoi chiamare questo appuntamento?"
 
         if not data_ev:
-            return "CHIEDI:data:Quando vuoi fissare l'appuntamento? (es. domani, lunedì, 15/06)"
+            return "CHIEDI:data:Quando? (es. domani, lunedì, 15/06)"
 
-        # Costruisci datetime
         try:
             if isinstance(data_ev, str):
                 if DATEPARSER_OK:
                     import dateparser
                     parsed = dateparser.parse(
-                        data_ev,
-                        languages=["it"],
+                        data_ev, languages=["it"],
                         settings={"PREFER_DATES_FROM": "future"}
                     )
-                    if parsed:
-                        data_ev = parsed.date()
-                    else:
-                        data_ev = date.fromisoformat(data_ev)
+                    data_ev = parsed.date() if parsed else date.fromisoformat(data_ev)
                 else:
                     data_ev = date.fromisoformat(data_ev)
 
             if ora_ev and isinstance(ora_ev, str):
-                from datetime import time
                 parts = ora_ev.replace(".", ":").split(":")
+                from datetime import time
                 ora_ev = time(int(parts[0]), int(parts[1]))
 
             dt_inizio = datetime.combine(
@@ -539,11 +573,10 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
                 ora_ev if ora_ev else datetime.strptime("09:00", "%H:%M").time()
             )
 
-            # Usa ora_fine se presente, altrimenti +1 ora
             if ora_fine_ev:
                 if isinstance(ora_fine_ev, str):
-                    from datetime import time
                     parts = ora_fine_ev.replace(".", ":").split(":")
+                    from datetime import time
                     ora_fine_ev = time(int(parts[0]), int(parts[1]))
                 dt_fine = datetime.combine(data_ev, ora_fine_ev)
             else:
@@ -551,7 +584,6 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
                     dt_inizio.year, dt_inizio.month, dt_inizio.day,
                     min(dt_inizio.hour + 1, 23), dt_inizio.minute
                 )
-
         except Exception as e:
             return f"Non sono riuscito a interpretare la data/ora: {e}"
 
@@ -580,38 +612,29 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
     if intent == "registra_contatto":
         if not can_edit(utente):
             return "Non hai i permessi per registrare contatti."
-
         persone = entita.get("persone", []) + entita.get("organizzazioni", [])
         nome_cliente = dati_extra.get("nome_cliente") or \
             (persone[0] if persone else None)
-
         if not nome_cliente:
             return "CHIEDI:nome_cliente:Con quale cliente hai avuto questo contatto?"
-
         cliente, domanda = resolve_cliente(nome_cliente, utente)
         if domanda and not cliente:
             return f"CHIEDI:nome_cliente:{domanda}"
-
-        tipo_contatto = dati_extra.get("tipo_contatto", "nota")
         descrizione = dati_extra.get("descrizione")
-
         if not descrizione:
-            # Prova da virgolette
             t = entita.get("testo_originale", "")
             match_vir = re.findall(r'"([^"]+)"', t)
             if match_vir:
                 descrizione = match_vir[-1]
             if not descrizione:
                 return "CHIEDI:descrizione:Di cosa avete parlato?"
-
         crea_voce_diario({
             "cliente_id": cliente["id"],
-            "tipo": tipo_contatto,
+            "tipo": "nota",
             "titolo": f"Contatto con {nome_cliente}",
             "descrizione": descrizione,
             "data_contatto": date.today().isoformat(),
         }, utente["id"])
-
         nome_cl = cliente.get("ragione_sociale") or \
             f"{cliente.get('nome','')} {cliente.get('cognome','')}".strip()
         return f"Contatto registrato nel diario di {nome_cl}."
@@ -619,7 +642,6 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
     # ── DOMANDA GENERICA ──
     if intent == "domanda_generica":
         testo = entita.get("testo_originale", "").lower()
-
         if "quanti clienti" in testo or "numero clienti" in testo:
             clienti = lista_clienti()
             attivi = [c for c in clienti if c.get("stato") == "attivo"]
@@ -630,7 +652,6 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
                 f"- Prospect: {len(prospect)}\n"
                 f"- Altri: {len(clienti) - len(attivi) - len(prospect)}"
             )
-
         if "follow" in testo or "scadenz" in testo or "da fare" in testo:
             oggi = followup_oggi()
             prossimi = followup_prossimi7()
@@ -638,15 +659,12 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
                 f"Hai **{len(oggi)} follow-up oggi** e "
                 f"**{len(prossimi)} nei prossimi 7 giorni**."
             )
-
         if "eventi" in testo or "catering" in testo:
             eventi = lista_eventi_catering()
             return f"Ci sono **{len(eventi)} eventi** nel sistema."
-
         if "messaggi" in testo or "non letti" in testo:
             non_letti = lista_messaggi_non_letti(utente["id"])
             return f"Hai **{len(non_letti)} messaggi non letti**."
-
         return (
             "Non sono sicuro di aver capito. Prova a dirmi cosa vuoi fare, "
             "ad esempio:\n"
@@ -662,16 +680,14 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
 
 # ── GESTORE STATO CONVERSAZIONE ───────────────────────
 
-def processa_messaggio(testo: str, utente: dict,
-                       intent_clf, ner_model) -> str:
+def processa_messaggio(testo: str, utente: dict, modelli) -> str:
+    """Processa un messaggio gestendo lo stato multi-turn."""
     chat_state = st.session_state.get("assistente_state", {})
     pending_intent = chat_state.get("pending_intent")
     pending_entities = chat_state.get("pending_entities", {})
     pending_field = chat_state.get("pending_field")
 
     if pending_intent and pending_field:
-        # L'utente sta rispondendo a una domanda specifica
-        # Salva la risposta nel campo corretto
         pending_entities[pending_field] = testo.strip()
         st.session_state.assistente_state = {
             "pending_intent": pending_intent,
@@ -685,25 +701,17 @@ def processa_messaggio(testo: str, utente: dict,
             pending_entities
         )
     else:
-        # Nuova richiesta — analizza tutto il testo
-        intent, score = classifica_intent(testo, intent_clf)
-        entita = estrai_entita(testo, ner_model)
+        intent, score = classifica_intent(testo, modelli)
+        entita = estrai_entita(testo)
 
-        # Pre-popola le entities dal testo originale
         dati_extra = {}
 
-        # Estrai titolo da virgolette se presente
+        # Estrai titolo da virgolette
         match_virgolette = re.findall(r'"([^"]+)"', testo)
         if match_virgolette:
             dati_extra["titolo"] = match_virgolette[0]
 
-        # Estrai data e ora
-        if entita.get("data"):
-            dati_extra["data"] = entita["data"]
-        if entita.get("ora"):
-            dati_extra["ora"] = entita["ora"]
-
-        # Estrai orario fine se presente nel testo (es "alle 11.30 alle 13.30")
+        # Estrai orari con regex (es. "alle 11.30 alle 13.30")
         orari = re.findall(r'\b(\d{1,2})[:\.](\d{2})\b', testo)
         if len(orari) >= 2:
             try:
@@ -719,12 +727,18 @@ def processa_messaggio(testo: str, utente: dict,
             except:
                 pass
 
+        # Data da dateparser
+        if entita.get("data"):
+            dati_extra["data"] = entita["data"]
+        elif DATEPARSER_OK:
+            data_parsed, _ = _estrai_data_ora(testo)
+            if data_parsed:
+                dati_extra["data"] = data_parsed
+
         st.session_state.assistente_state = {
             "pending_intent": intent,
             "pending_entities": {
                 **dati_extra,
-                "data": entita.get("data"),
-                "ora": dati_extra.get("ora") or entita.get("ora"),
                 "luoghi": entita.get("luoghi", []),
             },
             "pending_field": None,
@@ -747,7 +761,6 @@ def processa_messaggio(testo: str, utente: dict,
     state = st.session_state.get("assistente_state", {})
     state["pending_field"] = None
     st.session_state.assistente_state = state
-
     return risposta
 
 
@@ -765,13 +778,11 @@ def widget_assistente_sidebar(utente):
         "Assistente AI</div>",
         unsafe_allow_html=True
     )
-
     if st.button("Apri assistente", key="btn_apri_assistente",
                  use_container_width=True):
         st.session_state.pagina = "assistente"
         st.rerun()
 
-    # Mostra ultimo messaggio se esiste
     history = st.session_state.get("assistente_history", [])
     if history:
         ultimo = history[-1]
@@ -779,7 +790,8 @@ def widget_assistente_sidebar(utente):
             st.markdown(
                 f"<div style='font-size:10px;color:#9999bb;"
                 f"margin-top:4px;line-height:1.4;'>"
-                f"{ultimo['content'][:80]}{'...' if len(ultimo['content']) > 80 else ''}"
+                f"{ultimo['content'][:80]}"
+                f"{'...' if len(ultimo['content']) > 80 else ''}"
                 f"</div>",
                 unsafe_allow_html=True
             )
@@ -792,29 +804,17 @@ def pagina_assistente(utente):
     st.title("Assistente AI")
     st.markdown("---")
 
-    # Carica modelli
     with st.spinner("Carico i modelli AI..."):
-        intent_clf, ner_model = carica_modelli()
+        modelli = carica_modelli()
 
-    if intent_clf is None:
-        st.warning(
-            "Modelli AI non disponibili — uso modalità regole. "
-            "Installa transformers e torch per le funzionalità complete."
+    model, _, _ = modelli
+    if model is None:
+        st.caption(
+            "Modalità regex attiva — installa sentence-transformers "
+            "per NLU completo."
         )
 
-    # Info capacità basate sul ruolo
-    ruolo = utente.get("ruolo", "visualizza")
-    col_info, col_reset = st.columns([4, 1])
-    with col_info:
-        st.markdown(
-            f"<div style='background:#f4f4f8;border-radius:8px;"
-            f"padding:10px 14px;font-size:12px;color:#666;'>"
-            f"Ruolo: <b>{ruolo}</b> · "
-            f"{'Puoi creare e modificare' if can_edit(utente) else 'Sola lettura'} · "
-            f"{'Admin: sì' if is_admin(utente) else ''}"
-            f"</div>",
-            unsafe_allow_html=True
-        )
+    col_sp, col_reset = st.columns([5, 1])
     with col_reset:
         if st.button("Reset", key="reset_chat"):
             st.session_state.assistente_history = []
@@ -823,8 +823,9 @@ def pagina_assistente(utente):
 
     st.markdown("---")
 
-    # Inizializza history
-    if "assistente_history" not in st.session_state:
+    # Inizializza history con benvenuto
+    if "assistente_history" not in st.session_state or \
+            not st.session_state.assistente_history:
         st.session_state.assistente_history = []
         ora = datetime.now().hour
         if 5 <= ora < 12:
@@ -833,7 +834,6 @@ def pagina_assistente(utente):
             benvenuto = f"Buon pomeriggio {utente['nome']}! Cosa posso fare per te?"
         else:
             benvenuto = f"Buonasera {utente['nome']}! Come posso aiutarti?"
-
         st.session_state.assistente_history.append({
             "role": "assistant",
             "content": benvenuto
@@ -845,7 +845,8 @@ def pagina_assistente(utente):
             st.markdown(
                 f"<div style='display:flex;justify-content:flex-end;"
                 f"margin:8px 0;'>"
-                f"<div style='background:#1a1a2e;color:white;border-radius:12px 12px 2px 12px;"
+                f"<div style='background:#1a1a2e;color:white;"
+                f"border-radius:12px 12px 2px 12px;"
                 f"padding:10px 16px;max-width:75%;font-size:13px;'>"
                 f"{msg['content']}"
                 f"</div></div>",
@@ -858,35 +859,15 @@ def pagina_assistente(utente):
                 f"<div style='background:#f4f4f8;color:#1a1a2e;"
                 f"border-radius:12px 12px 12px 2px;"
                 f"padding:10px 16px;max-width:75%;font-size:13px;"
-                f"line-height:1.6;'>"
-                f"{msg['content'].replace(chr(10), '<br>')}"
+                f"line-height:1.6;white-space:pre-wrap;'>"
+                f"{msg['content']}"
                 f"</div></div>",
                 unsafe_allow_html=True
             )
 
-    # Suggerimenti rapidi
-    if len(st.session_state.assistente_history) <= 1:
-        st.markdown(
-            "<div style='font-size:11px;color:#aaa;margin:12px 0 6px 0;'>"
-            "Suggerimenti:</div>",
-            unsafe_allow_html=True
-        )
-        suggerimenti = [
-            "Mostrami i follow-up di oggi",
-            "Quanti clienti ho?",
-            "Mostrami i messaggi non letti",
-            "Cosa puoi fare?",
-        ]
-        cols = st.columns(2)
-        for i, sug in enumerate(suggerimenti):
-            with cols[i % 2]:
-                if st.button(sug, key=f"sug_{i}", use_container_width=True):
-                    _processa_e_aggiungi(sug, utente, intent_clf, ner_model)
-                    st.rerun()
-
-    # Input
     st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
 
+    # Input
     with st.form("form_chat", clear_on_submit=True):
         col_input, col_btn = st.columns([5, 1])
         with col_input:
@@ -899,30 +880,24 @@ def pagina_assistente(utente):
             invia = st.form_submit_button("Invia", use_container_width=True)
 
     if invia and user_input.strip():
-        _processa_e_aggiungi(user_input, utente, intent_clf, ner_model)
+        _processa_e_aggiungi(user_input, utente, modelli)
         st.rerun()
 
 
-def _processa_e_aggiungi(testo: str, utente: dict,
-                          intent_clf, ner_model):
+def _processa_e_aggiungi(testo: str, utente: dict, modelli):
     """Processa il messaggio e aggiorna la history."""
-    # Aggiungi messaggio utente
     st.session_state.assistente_history.append({
         "role": "user",
         "content": testo
     })
 
-    # Processa e ottieni risposta
-    with st.spinner("..."):
-        risposta = processa_messaggio(testo, utente, intent_clf, ner_model)
+    risposta = processa_messaggio(testo, utente, modelli)
 
-    # Aggiungi risposta assistente
     st.session_state.assistente_history.append({
         "role": "assistant",
         "content": risposta
     })
 
-    # Limita history a 50 messaggi
     if len(st.session_state.assistente_history) > 50:
         st.session_state.assistente_history = \
             st.session_state.assistente_history[-50:]
