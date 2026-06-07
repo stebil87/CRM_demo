@@ -4,13 +4,13 @@ import plotly.graph_objects as go
 import pandas as pd
 from datetime import datetime
 import random
+from auth import can_edit
 from db import (
     stats_dashboard, followup_oggi, followup_prossimi7,
     eventi_oggi_multi, get_calendari_visibili,
     lista_eventi_catering, lista_messaggi_non_letti,
-    compleanni_in_arrivo
+    compleanni_in_arrivo, kpi_operativi
 )
-from auth import can_edit
 
 
 def is_event_manager(utente):
