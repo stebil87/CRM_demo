@@ -456,12 +456,13 @@ with st.sidebar:
 
     if st.session_state.get("conferma_logout"):
         st.markdown(
-            "<div style='background:#fff0f3;border:1px solid #e94560;"
-            "border-radius:8px;padding:12px 14px;margin:8px 0;'>"
-            "<div style='font-size:12px;font-weight:600;color:#e94560;"
-            "margin-bottom:8px;'>Sicuro di voler uscire?</div>"
+            "<div style='background:#e94560;border-radius:8px;"
+            "padding:12px 14px;margin:8px 0;text-align:center;'>"
+            "<div style='font-size:12px;font-weight:600;color:white;'>"
+            "Sicuro di voler uscire?</div>"
             "</div>",
             unsafe_allow_html=True
+        )
         )
         col_si, col_no = st.columns(2)
         with col_si:
