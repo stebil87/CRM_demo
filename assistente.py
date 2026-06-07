@@ -406,7 +406,10 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
                 c.get("ragione_sociale") or
                 f"{c.get('nome','')} {c.get('cognome','')}".strip()
             )
-        return f"Ho trovato {len(clienti)} clienti: {', '.join(nomi)}. Vuoi più dettagli su uno in particolare?"
+        return (
+            f"Ho trovato {len(clienti)} clienti: {', '.join(nomi)}. "
+            f"Vuoi più dettagli su uno in particolare?"
+        )
 
     # ── CREA NOTA ──
     if intent == "crea_nota":
@@ -415,12 +418,16 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
 
         testo = dati_extra.get("testo_nota")
         if not testo:
-            # Estrai il testo dopo "nota:" o "appunto:" o simili
             t = entita["testo_originale"]
             for keyword in ["nota:", "appunto:", "segna:", "ricordami:"]:
                 if keyword in t.lower():
                     testo = t[t.lower().index(keyword) + len(keyword):].strip()
                     break
+            # Prova anche con virgolette
+            if not testo:
+                match_vir = re.findall(r'"([^"]+)"', t)
+                if match_vir:
+                    testo = match_vir[0]
             if not testo:
                 return "CHIEDI:testo_nota:Cosa vuoi annotare?"
 
@@ -445,10 +452,18 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
 
         corpo = dati_extra.get("corpo_messaggio")
         if not corpo:
-            return f"CHIEDI:corpo_messaggio:Cosa vuoi scrivere a {destinatario['nome']}?"
+            # Prova a estrarre corpo dal testo originale
+            t = entita.get("testo_originale", "")
+            match_vir = re.findall(r'"([^"]+)"', t)
+            if match_vir:
+                corpo = match_vir[-1]  # Ultimo testo tra virgolette
+            if not corpo:
+                return (
+                    f"CHIEDI:corpo_messaggio:"
+                    f"Cosa vuoi scrivere a {destinatario['nome']}?"
+                )
 
         oggetto = dati_extra.get("oggetto_messaggio", "")
-
         invia_messaggio(utente["id"], destinatario["id"], oggetto, corpo)
         return f"Messaggio inviato a {destinatario['nome']} {destinatario['cognome']}."
 
@@ -459,12 +474,13 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
 
         data_ev = dati_extra.get("data") or entita.get("data")
         ora_ev = dati_extra.get("ora") or entita.get("ora")
+        ora_fine_ev = dati_extra.get("ora_fine")
         titolo = dati_extra.get("titolo")
         luogo = dati_extra.get("luogo") or \
             (entita["luoghi"][0] if entita.get("luoghi") else "")
 
+        # Titolo automatico da persone estratte
         if not titolo:
-            # Prova a costruire titolo automatico
             persone = entita.get("persone", [])
             if persone:
                 titolo = f"Incontro con {persone[0]}"
@@ -472,25 +488,48 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
                 return "CHIEDI:titolo:Come vuoi chiamare questo appuntamento?"
 
         if not data_ev:
-            return "CHIEDI:data:Quando vuoi fissare l'appuntamento?"
+            return "CHIEDI:data:Quando vuoi fissare l'appuntamento? (es. domani, lunedì, 15/06)"
 
         # Costruisci datetime
         try:
             if isinstance(data_ev, str):
-                data_ev = date.fromisoformat(data_ev)
+                if DATEPARSER_OK:
+                    import dateparser
+                    parsed = dateparser.parse(
+                        data_ev,
+                        languages=["it"],
+                        settings={"PREFER_DATES_FROM": "future"}
+                    )
+                    if parsed:
+                        data_ev = parsed.date()
+                    else:
+                        data_ev = date.fromisoformat(data_ev)
+                else:
+                    data_ev = date.fromisoformat(data_ev)
+
             if ora_ev and isinstance(ora_ev, str):
                 from datetime import time
-                parts = ora_ev.split(":")
+                parts = ora_ev.replace(".", ":").split(":")
                 ora_ev = time(int(parts[0]), int(parts[1]))
 
             dt_inizio = datetime.combine(
                 data_ev,
                 ora_ev if ora_ev else datetime.strptime("09:00", "%H:%M").time()
             )
-            dt_fine = datetime(
-                dt_inizio.year, dt_inizio.month, dt_inizio.day,
-                min(dt_inizio.hour + 1, 23), dt_inizio.minute
-            )
+
+            # Usa ora_fine se presente, altrimenti +1 ora
+            if ora_fine_ev:
+                if isinstance(ora_fine_ev, str):
+                    from datetime import time
+                    parts = ora_fine_ev.replace(".", ":").split(":")
+                    ora_fine_ev = time(int(parts[0]), int(parts[1]))
+                dt_fine = datetime.combine(data_ev, ora_fine_ev)
+            else:
+                dt_fine = datetime(
+                    dt_inizio.year, dt_inizio.month, dt_inizio.day,
+                    min(dt_inizio.hour + 1, 23), dt_inizio.minute
+                )
+
         except Exception as e:
             return f"Non sono riuscito a interpretare la data/ora: {e}"
 
@@ -508,7 +547,11 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
 
         if risultato:
             data_fmt = dt_inizio.strftime("%d/%m/%Y alle %H:%M")
-            return f"Appuntamento '{titolo}' creato per {data_fmt}."
+            fine_fmt = dt_fine.strftime("%H:%M")
+            return (
+                f"Appuntamento '{titolo}' creato per {data_fmt} "
+                f"fino alle {fine_fmt}."
+            )
         return "Errore nella creazione dell'appuntamento."
 
     # ── REGISTRA CONTATTO NEL DIARIO ──
@@ -529,8 +572,15 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
 
         tipo_contatto = dati_extra.get("tipo_contatto", "nota")
         descrizione = dati_extra.get("descrizione")
+
         if not descrizione:
-            return "CHIEDI:descrizione:Di cosa avete parlato?"
+            # Prova da virgolette
+            t = entita.get("testo_originale", "")
+            match_vir = re.findall(r'"([^"]+)"', t)
+            if match_vir:
+                descrizione = match_vir[-1]
+            if not descrizione:
+                return "CHIEDI:descrizione:Di cosa avete parlato?"
 
         crea_voce_diario({
             "cliente_id": cliente["id"],
@@ -548,25 +598,41 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
     if intent == "domanda_generica":
         testo = entita.get("testo_originale", "").lower()
 
-        if "quanti clienti" in testo:
+        if "quanti clienti" in testo or "numero clienti" in testo:
             clienti = lista_clienti()
-            return f"Hai {len(clienti)} clienti nel CRM."
+            attivi = [c for c in clienti if c.get("stato") == "attivo"]
+            prospect = [c for c in clienti if c.get("stato") == "prospect"]
+            return (
+                f"Hai **{len(clienti)} clienti** totali nel CRM.\n"
+                f"- Attivi: {len(attivi)}\n"
+                f"- Prospect: {len(prospect)}\n"
+                f"- Altri: {len(clienti) - len(attivi) - len(prospect)}"
+            )
 
-        if "follow" in testo or "scadenz" in testo:
+        if "follow" in testo or "scadenz" in testo or "da fare" in testo:
             oggi = followup_oggi()
-            return f"Hai {len(oggi)} follow-up per oggi."
+            prossimi = followup_prossimi7()
+            return (
+                f"Hai **{len(oggi)} follow-up oggi** e "
+                f"**{len(prossimi)} nei prossimi 7 giorni**."
+            )
 
         if "eventi" in testo or "catering" in testo:
             eventi = lista_eventi_catering()
-            return f"Ci sono {len(eventi)} eventi nel sistema."
+            return f"Ci sono **{len(eventi)} eventi** nel sistema."
+
+        if "messaggi" in testo or "non letti" in testo:
+            non_letti = lista_messaggi_non_letti(utente["id"])
+            return f"Hai **{len(non_letti)} messaggi non letti**."
 
         return (
             "Non sono sicuro di aver capito. Prova a dirmi cosa vuoi fare, "
             "ad esempio:\n"
             "- 'Crea un appuntamento con Rossi domani alle 10'\n"
-            "- 'Manda un messaggio a Giorgio'\n"
+            "- 'Manda un messaggio a Giorgio che dice di chiamarmi'\n"
             "- 'Mostrami i follow-up di oggi'\n"
-            "- 'Cerca il cliente Bianchi'"
+            "- 'Cerca il cliente Bianchi'\n"
+            "- 'Quanti clienti ho?'"
         )
 
     return "Non ho capito la richiesta. Puoi ripetere in modo diverso?"
