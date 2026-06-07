@@ -313,7 +313,7 @@ if not utente:
         try:
             logo_col1, logo_col2, logo_col3 = st.columns([1, 2, 1])
             with logo_col2:
-                st.image("1908_Group_Black.png", use_container_width=True)
+                st.image("1908_Group_Black.png", width='stretch')
         except:
             st.markdown(
                 "<h2 style='text-align:center;color:#1a1a2e;'>1908 Group SA</h2>",
@@ -402,7 +402,7 @@ with st.sidebar:
             unsafe_allow_html=True
         )
         if st.button("Aggiorna password", key="btn_cambia_pwd",
-                     use_container_width=True):
+                     width='stretch'):
             if not nuova or not conferma:
                 st.error("Compila entrambi i campi.")
             elif nuova != conferma:
@@ -453,7 +453,7 @@ with st.sidebar:
         nav_items.append(("admin", "Amministrazione"))
 
     for pagina_key, label in nav_items:
-        if st.button(label, key=f"nav_{pagina_key}", use_container_width=True):
+        if st.button(label, key=f"nav_{pagina_key}", width='stretch'):
             st.session_state.pagina = pagina_key
             st.session_state.pagina_precedente = st.session_state.pagina
             if pagina_key == "offerte_all":
@@ -476,7 +476,7 @@ with st.sidebar:
 
     notifiche_on = not st.session_state.get("notifiche_disattivate", False)
     label_notifiche = "Notifiche: ON" if notifiche_on else "Notifiche: OFF"
-    if st.button(label_notifiche, key="toggle_notifiche", use_container_width=True):
+    if st.button(label_notifiche, key="toggle_notifiche", width='stretch'):
         st.session_state.notifiche_disattivate = notifiche_on
         st.rerun()
 
@@ -492,15 +492,15 @@ with st.sidebar:
         )
         col_si, col_no = st.columns(2)
         with col_si:
-            if st.button("Si, esci", key="logout_si", use_container_width=True):
+            if st.button("Si, esci", key="logout_si", width='stretch'):
                 st.session_state.conferma_logout = False
                 do_logout()
         with col_no:
-            if st.button("Annulla", key="logout_no", use_container_width=True):
+            if st.button("Annulla", key="logout_no", width='stretch'):
                 st.session_state.conferma_logout = False
                 st.rerun()
     else:
-        if st.button("Esci", key="nav_logout", use_container_width=True):
+        if st.button("Esci", key="nav_logout", width='stretch'):
             st.session_state.conferma_logout = True
             st.rerun()
 
