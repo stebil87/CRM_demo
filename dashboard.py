@@ -4,13 +4,13 @@ import plotly.graph_objects as go
 import pandas as pd
 from datetime import datetime
 import random
-from auth import can_edit
 from db import (
     stats_dashboard, followup_oggi, followup_prossimi7,
     eventi_oggi_multi, get_calendari_visibili,
     lista_eventi_catering, lista_messaggi_non_letti,
-    compleanni_in_arrivo, kpi_operativi
+    compleanni_in_arrivo
 )
+from auth import can_edit
 
 
 def is_event_manager(utente):
@@ -102,9 +102,7 @@ def _saluto(utente):
 
 
 def _widget_messaggi(utente):
-    """Sezione fissa messaggi non letti — sempre visibile in dashboard."""
     non_letti = lista_messaggi_non_letti(utente["id"])
-
     st.markdown(
         "<div style='display:flex;align-items:center;"
         "justify-content:space-between;margin-bottom:12px;'>"
@@ -170,11 +168,7 @@ def _widget_messaggi(utente):
             unsafe_allow_html=True
         )
 
-    if st.button(
-        "Vai ai messaggi",
-        key="dash_vai_msg",
-        use_container_width=True
-    ):
+    if st.button("Vai ai messaggi", key="dash_vai_msg", use_container_width=True):
         st.session_state.pagina = "messaggi"
         st.rerun()
 
@@ -183,6 +177,7 @@ def pagina_dashboard(utente):
     st.title("Dashboard")
     _saluto(utente)
 
+    # Una sola chiamata — tutto unificato
     stats = stats_dashboard()
     oggi_fu = followup_oggi()
     prossimi_fu = followup_prossimi7()
@@ -194,21 +189,9 @@ def pagina_dashboard(utente):
     clienti_df = pd.DataFrame(
         stats["clienti_data"]) if stats["clienti_data"] else pd.DataFrame()
 
-    valore_chiuso = offerte_df[
-        offerte_df["stato"] == "accettata"
-    ]["importo"].sum() if not offerte_df.empty and "importo" in offerte_df.columns else 0
-
-    tasso_chiusura = 0
-    if not offerte_df.empty and "stato" in offerte_df.columns:
-        tot = len(offerte_df)
-        chiuse = len(offerte_df[offerte_df["stato"] == "accettata"])
-        tasso_chiusura = round((chiuse / tot) * 100) if tot > 0 else 0
+    prossimo = stats["prossimo_evento"]
 
     # ── KPI OPERATIVI ──
-    kpi = kpi_operativi()
-    offerte_data = stats_dashboard()["offerte_data"]
-    prossimo = kpi["prossimo_evento"]
-
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
@@ -218,8 +201,9 @@ def pagina_dashboard(utente):
             "padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);'>"
             "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
             "letter-spacing:0.8px;color:#888;margin-bottom:8px;'>Eventi prossimi 30gg</div>"
-            f"<div style='font-size:32px;font-weight:700;color:#1a1a2e;'>{kpi['n_eventi_30gg']}</div>"
-            "<div style='font-size:11px;color:#aaa;margin-top:4px;'>eventi in programma</div>"
+            f"<div style='font-size:32px;font-weight:700;color:#1a1a2e;'>"
+            f"{stats['n_eventi_30gg']}</div>"
+            "<div style='font-size:11px;color:#aaa;margin-top:4px;'>in programma</div>"
             "</div>",
             unsafe_allow_html=True
         )
@@ -231,8 +215,8 @@ def pagina_dashboard(utente):
             "padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);'>"
             "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
             "letter-spacing:0.8px;color:#888;margin-bottom:8px;'>Fatturato chiuso</div>"
-            f"<div style='font-size:32px;font-weight:700;color:#1a1a2e;'>"
-            f"CHF {sum(float(o.get('importo') or 0) for o in offerte_data if o.get('stato') == 'accettata'):,.0f}</div>"
+            f"<div style='font-size:28px;font-weight:700;color:#1a1a2e;'>"
+            f"CHF {stats['fatturato_chiuso']:,.0f}</div>"
             "<div style='font-size:11px;color:#aaa;margin-top:4px;'>offerte accettate</div>"
             "</div>",
             unsafe_allow_html=True
@@ -245,9 +229,10 @@ def pagina_dashboard(utente):
             "padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);'>"
             "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
             "letter-spacing:0.8px;color:#888;margin-bottom:8px;'>Valore pipeline</div>"
-            f"<div style='font-size:32px;font-weight:700;color:#1a1a2e;'>"
-            f"CHF {kpi['valore_pipeline']:,.0f}</div>"
-            "<div style='font-size:11px;color:#aaa;margin-top:4px;'>offerte inviate non chiuse</div>"
+            f"<div style='font-size:28px;font-weight:700;color:#1a1a2e;'>"
+            f"CHF {stats['valore_pipeline']:,.0f}</div>"
+            "<div style='font-size:11px;color:#aaa;margin-top:4px;'>"
+            f"{stats['n_attesa']} offerte in attesa</div>"
             "</div>",
             unsafe_allow_html=True
         )
@@ -255,7 +240,6 @@ def pagina_dashboard(utente):
     with col4:
         if prossimo:
             try:
-                from datetime import datetime
                 dt = datetime.fromisoformat(
                     prossimo["data_inizio"].replace("Z", "")
                 )
@@ -270,13 +254,12 @@ def pagina_dashboard(utente):
                 "padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);'>"
                 "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
                 "letter-spacing:0.8px;color:#888;margin-bottom:8px;'>Prossimo evento</div>"
-                f"<div style='font-size:16px;font-weight:700;color:#1a1a2e;"
+                f"<div style='font-size:15px;font-weight:700;color:#1a1a2e;"
                 f"line-height:1.3;'>{prossimo['titolo']}</div>"
                 f"<div style='font-size:12px;color:#e94560;margin-top:6px;font-weight:600;'>"
                 f"{data_str}"
                 + (f" · {ora_str}" if ora_str and ora_str != "00:00" else "") +
-                "</div>"
-                "</div>",
+                "</div></div>",
                 unsafe_allow_html=True
             )
         else:
@@ -648,8 +631,8 @@ def pagina_dashboard(utente):
                     "Offerte aperte": len(offerte_df[offerte_df["stato"].isin(["bozza", "inviata"])]) if not offerte_df.empty and "stato" in offerte_df.columns else 0,
                     "Offerte vinte": len(offerte_df[offerte_df["stato"] == "accettata"]) if not offerte_df.empty and "stato" in offerte_df.columns else 0,
                     "Offerte perse": len(offerte_df[offerte_df["stato"] == "rifiutata"]) if not offerte_df.empty and "stato" in offerte_df.columns else 0,
-                    "Valore chiuso": f"CHF {valore_chiuso:,.0f}",
-                    "Tasso chiusura": f"{tasso_chiusura}%",
+                    "Fatturato chiuso": f"CHF {stats['fatturato_chiuso']:,.0f}",
+                    "Tasso chiusura": f"{stats['tasso_chiusura']}%",
                 }
                 for k, v in riepilogo.items():
                     c1, c2 = st.columns([3, 2])
