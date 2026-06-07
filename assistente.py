@@ -576,17 +576,14 @@ def esegui_azione(intent: str, entita: dict, utente: dict,
 
 def processa_messaggio(testo: str, utente: dict,
                        intent_clf, ner_model) -> str:
-    """
-    Processa un messaggio dell'utente gestendo
-    lo stato della conversazione multi-turn.
-    """
     chat_state = st.session_state.get("assistente_state", {})
     pending_intent = chat_state.get("pending_intent")
     pending_entities = chat_state.get("pending_entities", {})
     pending_field = chat_state.get("pending_field")
 
-    # Se c'è una domanda in sospeso, usa la risposta
     if pending_intent and pending_field:
+        # L'utente sta rispondendo a una domanda specifica
+        # Salva la risposta nel campo corretto
         pending_entities[pending_field] = testo.strip()
         st.session_state.assistente_state = {
             "pending_intent": pending_intent,
@@ -600,16 +597,46 @@ def processa_messaggio(testo: str, utente: dict,
             pending_entities
         )
     else:
-        # Nuova richiesta
+        # Nuova richiesta — analizza tutto il testo
         intent, score = classifica_intent(testo, intent_clf)
         entita = estrai_entita(testo, ner_model)
 
-        risposta = esegui_azione(intent, entita, utente)
+        # Pre-popola le entities dal testo originale
+        dati_extra = {}
+
+        # Estrai titolo da virgolette se presente
+        match_virgolette = re.findall(r'"([^"]+)"', testo)
+        if match_virgolette:
+            dati_extra["titolo"] = match_virgolette[0]
+
+        # Estrai data e ora
+        if entita.get("data"):
+            dati_extra["data"] = entita["data"]
+        if entita.get("ora"):
+            dati_extra["ora"] = entita["ora"]
+
+        # Estrai orario fine se presente nel testo (es "alle 11.30 alle 13.30")
+        orari = re.findall(r'\b(\d{1,2})[:\.](\d{2})\b', testo)
+        if len(orari) >= 2:
+            try:
+                from datetime import time
+                dati_extra["ora"] = time(int(orari[0][0]), int(orari[0][1]))
+                dati_extra["ora_fine"] = time(int(orari[1][0]), int(orari[1][1]))
+            except:
+                pass
+        elif len(orari) == 1:
+            try:
+                from datetime import time
+                dati_extra["ora"] = time(int(orari[0][0]), int(orari[0][1]))
+            except:
+                pass
+
         st.session_state.assistente_state = {
             "pending_intent": intent,
             "pending_entities": {
+                **dati_extra,
                 "data": entita.get("data"),
-                "ora": entita.get("ora"),
+                "ora": dati_extra.get("ora") or entita.get("ora"),
                 "luoghi": entita.get("luoghi", []),
             },
             "pending_field": None,
@@ -617,23 +644,21 @@ def processa_messaggio(testo: str, utente: dict,
             "last_score": score,
         }
 
+        risposta = esegui_azione(intent, entita, utente, dati_extra)
+
     # Gestisci richieste di chiarimento
     if risposta.startswith("CHIEDI:"):
         parts = risposta.split(":", 2)
         field = parts[1]
         domanda = parts[2]
-
         state = st.session_state.get("assistente_state", {})
         state["pending_field"] = field
         st.session_state.assistente_state = state
-
         return domanda
 
-    # Azione completata — reset stato
-    if not risposta.startswith("CHIEDI:"):
-        state = st.session_state.get("assistente_state", {})
-        state["pending_field"] = None
-        st.session_state.assistente_state = state
+    state = st.session_state.get("assistente_state", {})
+    state["pending_field"] = None
+    st.session_state.assistente_state = state
 
     return risposta
 
