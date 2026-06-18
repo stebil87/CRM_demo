@@ -570,6 +570,10 @@ with st.sidebar:
         ("calendario",  "Calendario"),
         ("messaggi",    label_msg),
         ("assistente",  "Assistente AI"),
+        ("vacanze",     "Gestione vacanze"),
+        ("cucina",      "Cucina"),
+        ("magazzino",   "Magazzino"),
+        # ("inbox", "Posta condivisa"),
     ]
     if is_admin(utente):
         nav_items.append(("admin", "Amministrazione"))
@@ -641,6 +645,9 @@ breadcrumb_map = {
     "messaggi":    "Messaggi",
     "inbox":       "Posta condivisa",
     "assistente":  "Assistente AI",
+    "vacanze":     "Gestione vacanze",
+    "cucina":      "Cucina",
+    "magazzino":   "Magazzino",
     "admin":       "Amministrazione",
 }
 breadcrumb = breadcrumb_map.get(p, "")
@@ -673,5 +680,15 @@ elif p == "inbox":
     pagina_inbox(utente)
 elif p == "assistente":
     pagina_assistente(utente)
+
+elif p == "vacanze":
+    st.title("Gestione vacanze")
+    st.info("Sezione in sviluppo.")
+elif p == "cucina":
+    st.title("Cucina")
+    st.info("Sezione in sviluppo.")
+elif p == "magazzino":
+    st.title("Magazzino")
+    st.info("Sezione in sviluppo.")
 elif p == "admin":
     pagina_admin(utente)
