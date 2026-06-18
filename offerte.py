@@ -28,10 +28,33 @@ def pagina_offerte(utente, cliente_id=None, cliente_nome=None):
     with tab_nuova:
         if not can_edit(utente):
             st.warning("Non hai i permessi per creare offerte.")
-        elif not cliente_id:
-            st.info("Seleziona un cliente dalla sezione Clienti per creare un'offerta.")
-        else:
+        elif cliente_id:
             _form_nuova_offerta(utente, cliente_id)
+        else:
+            # Nessun cliente preselezionato — permetti la scelta diretta
+            from db import lista_clienti
+            clienti_disp = lista_clienti()
+            if not clienti_disp:
+                st.info("Nessun cliente presente. Creane uno prima dalla sezione Clienti.")
+            else:
+                opzioni = {"— Seleziona un cliente —": None}
+                for c in clienti_disp:
+                    nome_c = c.get("ragione_sociale") or \
+                        f"{c.get('nome','')} {c.get('cognome','')}".strip()
+                    opzioni[f"{nome_c}"] = c["id"]
+
+                scelto = st.selectbox(
+                    "Cliente per questa offerta",
+                    list(opzioni.keys()),
+                    key="sel_cliente_nuova_offerta"
+                )
+                cliente_scelto_id = opzioni[scelto]
+
+                if cliente_scelto_id:
+                    st.markdown("---")
+                    _form_nuova_offerta(utente, cliente_scelto_id)
+                else:
+                    st.info("Seleziona un cliente per procedere.")
 
     with tab_lista:
         offerte = lista_offerte(cliente_id)
