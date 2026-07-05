@@ -18,7 +18,7 @@ import time as _time
 TIMEOUT_SECONDI = 600  # 10 minuti
 
 st.set_page_config(
-    page_title="1908 Group — CRM",
+    page_title="AZIENDA — CRM",
     page_icon="placeholder.png",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -431,7 +431,7 @@ if not utente:
             except:
                 st.markdown(
                     "<h2 style='text-align:center;color:white;'>"
-                    "1908 Group SA</h2>",
+                    "AZIENDA</h2>",
                     unsafe_allow_html=True
                 )
 
@@ -448,7 +448,7 @@ if not utente:
         st.markdown(
             "<p style='font-size:11px;color:rgba(255,255,255,0.2);"
             "text-align:center;margin-top:24px;letter-spacing:0.3px;'>"
-            "1908 Group SA &nbsp;·&nbsp; Piattaforma CRM &nbsp;·&nbsp; "
+            "AZIENDA &nbsp;·&nbsp; Piattaforma CRM &nbsp;·&nbsp; "
             "Uso riservato</p>",
             unsafe_allow_html=True
         )
@@ -480,7 +480,7 @@ with st.sidebar:
     try:
         st.image("placeholder.png", width=150)
     except:
-        st.markdown("**1908 Group SA**")
+        st.markdown("**AZIENDA**")
 
     st.markdown(
         "<hr style='border-color:#2a2a4a;margin:16px 0;'>",
