@@ -427,7 +427,7 @@ if not utente:
         logo1, logo2, logo3 = st.columns([1, 2, 1])
         with logo2:
             try:
-                st.image("1908_Group_White.png", use_container_width=True)
+                st.image("placeholder.png", use_container_width=True)
             except:
                 st.markdown(
                     "<h2 style='text-align:center;color:white;'>"
@@ -478,7 +478,7 @@ if not st.session_state.get("notifiche_disattivate", False):
 with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
     try:
-        st.image("1908_Group_White.png", width=150)
+        st.image("placeholder.png", width=150)
     except:
         st.markdown("**1908 Group SA**")
 
