@@ -19,7 +19,7 @@ TIMEOUT_SECONDI = 600  # 10 minuti
 
 st.set_page_config(
     page_title="1908 Group — CRM",
-    page_icon="1908_Group_Black.png",
+    page_icon="placeholder.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
