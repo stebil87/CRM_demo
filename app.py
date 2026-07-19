@@ -10,7 +10,8 @@ from messaggi import pagina_messaggi
 from calendario import pagina_calendario
 from template_offerte import pagina_template
 from eventi_catering import pagina_eventi
-from inbox_widget import pagina_inboxfrom veicoli import pagina_veicoli
+from inbox_widget import pagina_inbox
+from veicoli import pagina_veicoli
 from gomme import pagina_gomme
 from assistente import pagina_assistente, widget_assistente_sidebar
 from db import lista_messaggi_non_letti, log_attivita
@@ -561,6 +562,11 @@ with st.sidebar:
         label_msg = f"Messaggi  ·  {n_non_letti} nuovi"
     else:
         label_msg = "Messaggi"
+
+    if st.button("🔄 Aggiorna dati", key="nav_refresh", width='stretch'):
+        st.cache_data.clear()
+        st.rerun()
+    st.markdown("<hr style='margin:6px 0'>", unsafe_allow_html=True)
 
     nav_items = [
         ("dashboard",   "Dashboard"),
