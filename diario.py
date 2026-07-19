@@ -60,6 +60,52 @@ def pagina_diario(utente, cliente_id, cliente_nome):
                         with col2:
                             _bottone_scarica_allegati(v, cliente_id, cliente_nome)
 
+                    _sezione_note(v, utente)
+
+def _sezione_note(v, utente):
+    """Note/commenti sotto la voce: si aggiungono, non si toccano.
+    Il messaggio originale resta immutabile."""
+    import html as _html
+    from db import get_sb
+    sb = get_sb()
+    try:
+        res = sb.table("diario_commenti").select(
+            "*, utenti(nome, cognome)"
+        ).eq("voce_id", v["id"]).order("created_at").execute()
+        note = res.data or []
+    except Exception:
+        note = []
+    for n in note:
+        a = n.get("utenti") or {}
+        autore = f"{a.get('nome','')} {a.get('cognome','')}".strip() or "—"
+        data = (n.get("created_at") or "")[:16].replace("T", " ")
+        st.markdown(
+            "<div style='background:#f7f7f9;border-left:3px solid #b9bdc9;"
+            "border-radius:6px;padding:8px 12px;margin:6px 0;font-size:13px;'>"
+            f"<span style='color:#888;font-size:11px;'>{_html.escape(autore)} — {data}</span><br>"
+            f"{_html.escape(n.get('contenuto','')).replace(chr(10), '<br>')}</div>",
+            unsafe_allow_html=True,
+        )
+    if can_edit(utente):
+        with st.form(f"nota_{v['id']}", clear_on_submit=True):
+            testo = st.text_area(
+                "Aggiungi una nota", height=80,
+                placeholder="Es. richiamato il cliente, appuntamento fissato...",
+                label_visibility="collapsed",
+            )
+            invia = st.form_submit_button("💬 Aggiungi nota")
+        if invia and testo.strip():
+            try:
+                sb.table("diario_commenti").insert({
+                    "voce_id": v["id"],
+                    "contenuto": testo.strip(),
+                    "created_by": utente["id"],
+                }).execute()
+                st.rerun()
+            except Exception:
+                st.error("Nota non salvata: riprova.")
+
+
 @st.cache_data(ttl=600, show_spinner=False)
 def _zip_allegati_sito(cliente_id, firma_docs):
     """Prepara (e tiene in cache) lo zip dei documenti caricati
