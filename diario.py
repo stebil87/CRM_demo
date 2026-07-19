@@ -51,20 +51,14 @@ def pagina_diario(utente, cliente_id, cliente_nome):
                         st.caption(f"Follow-up: {stato_fu}")
 
                     if can_edit(utente):
-                        col1, col2, col3 = st.columns([2, 2, 2])
+                        col1, col2 = st.columns([2, 2])
                         with col1:
-                            if st.button("✏️ Modifica", key=f"em_{v['id']}"):
-                                st.session_state[f"edit_diario_{v['id']}"] = True
-                        with col2:
                             if v.get("followup_data") and not v.get("followup_fatto"):
                                 if st.button("✓ Follow-up fatto", key=f"fuf_{v['id']}"):
                                     aggiorna_voce_diario(v["id"], {"followup_fatto": True})
                                     st.rerun()
-                        with col3:
+                        with col2:
                             _bottone_scarica_allegati(v, cliente_id, cliente_nome)
-
-                    if st.session_state.get(f"edit_diario_{v['id']}"):
-                        _form_modifica_voce(v, utente)
 
 @st.cache_data(ttl=600, show_spinner=False)
 def _zip_allegati_sito(cliente_id, firma_docs):
@@ -130,34 +124,3 @@ def _form_nuova_voce(utente, cliente_id):
             }, utente["id"])
             st.success("Voce aggiunta!")
             st.rerun()
-
-def _form_modifica_voce(v, utente):
-    st.markdown("---")
-    with st.form(f"form_edit_voce_{v['id']}"):
-        col1, col2 = st.columns(2)
-        with col1:
-            tipo = st.selectbox("Tipo", TIPI, index=TIPI.index(v["tipo"]) if v["tipo"] in TIPI else 0)
-            titolo = st.text_input("Titolo *", value=v["titolo"])
-        with col2:
-            data_contatto = st.date_input("Data", value=date.fromisoformat(v["data_contatto"][:10]))
-            fu_val = date.fromisoformat(v["followup_data"]) if v.get("followup_data") else None
-            followup_data = st.date_input("Follow-up", value=fu_val)
-        contenuto = st.text_area("Dettaglio", value=v.get("contenuto",""), height=120)
-        followup_fatto = st.checkbox("Follow-up completato", value=v.get("followup_fatto", False))
-        col1, col2 = st.columns(2)
-        with col1:
-            salva = st.form_submit_button("💾 Salva", use_container_width=True)
-        with col2:
-            annulla = st.form_submit_button("Annulla", use_container_width=True)
-    if salva:
-        aggiorna_voce_diario(v["id"], {
-            "tipo": tipo, "titolo": titolo, "contenuto": contenuto,
-            "data_contatto": data_contatto.isoformat(),
-            "followup_data": followup_data.isoformat() if followup_data else None,
-            "followup_fatto": followup_fatto,
-        })
-        st.session_state[f"edit_diario_{v['id']}"] = False
-        st.rerun()
-    if annulla:
-        st.session_state[f"edit_diario_{v['id']}"] = False
-        st.rerun()
