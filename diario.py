@@ -1,6 +1,6 @@
 import streamlit as st
 from datetime import date
-from db import lista_diario, crea_voce_diario, aggiorna_voce_diario, elimina_voce_diario
+from db import lista_diario, crea_voce_diario, aggiorna_voce_diario, lista_documenti, scarica_documento
 from auth import can_edit
 
 TIPI = ["email", "telefono", "riunione", "nota", "followup", "accordo", "altro"]
@@ -61,21 +61,38 @@ def pagina_diario(utente, cliente_id, cliente_nome):
                                     aggiorna_voce_diario(v["id"], {"followup_fatto": True})
                                     st.rerun()
                         with col3:
-                            if st.button("🗑️ Elimina", key=f"ed_{v['id']}"):
-                                st.session_state[f"del_diario_{v['id']}"] = True
-
-                    if st.session_state.get(f"del_diario_{v['id']}"):
-                        st.warning("Confermi l'eliminazione?")
-                        c1, c2 = st.columns(2)
-                        if c1.button("Sì, elimina", key=f"edok_{v['id']}"):
-                            elimina_voce_diario(v["id"])
-                            st.rerun()
-                        if c2.button("No, annulla", key=f"edno_{v['id']}"):
-                            st.session_state[f"del_diario_{v['id']}"] = False
-                            st.rerun()
+                            _bottone_scarica_allegati(v, cliente_id)
 
                     if st.session_state.get(f"edit_diario_{v['id']}"):
                         _form_modifica_voce(v, utente)
+
+def _bottone_scarica_allegati(v, cliente_id):
+    """Se la voce arriva dal sito, offre lo zip dei documenti
+    caricati dal cliente col modulo online."""
+    if not str(v.get("titolo", "")).startswith("[Sito]"):
+        return
+    docs = [d for d in (lista_documenti(cliente_id) or [])
+            if str(d.get("note", "")).startswith("Richiesta dal sito")]
+    if not docs:
+        return
+    if st.button(f"📎 Scarica allegati ({len(docs)})", key=f"za_{v['id']}"):
+        import io, zipfile
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+            for d in docs:
+                dati = scarica_documento(d["storage_path"])
+                if dati:
+                    z.writestr(d["nome_file"], dati)
+        st.session_state[f"zip_{v['id']}"] = buf.getvalue()
+    if st.session_state.get(f"zip_{v['id']}"):
+        st.download_button(
+            "⬇️ Scarica ZIP",
+            data=st.session_state[f"zip_{v['id']}"],
+            file_name="allegati_richiesta_sito.zip",
+            mime="application/zip",
+            key=f"zdl_{v['id']}",
+        )
+
 
 def _form_nuova_voce(utente, cliente_id):
     st.subheader("Nuova voce")
