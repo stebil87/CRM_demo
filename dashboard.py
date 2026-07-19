@@ -96,7 +96,7 @@ def _saluto(utente):
         f"letter-spacing:-0.3px;line-height:1.4;margin-bottom:6px;'>{testo}</div>"
         f"<div style='font-size:11px;color:rgba(255,255,255,0.35);"
         f"letter-spacing:0.8px;text-transform:uppercase;'>"
-        f"1908 Group SA — Piattaforma CRM</div>"
+        f"Azienda — Piattaforma CRM</div>"
         f"</div>",
         unsafe_allow_html=True
     )
