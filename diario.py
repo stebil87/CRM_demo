@@ -61,37 +61,47 @@ def pagina_diario(utente, cliente_id, cliente_nome):
                                     aggiorna_voce_diario(v["id"], {"followup_fatto": True})
                                     st.rerun()
                         with col3:
-                            _bottone_scarica_allegati(v, cliente_id)
+                            _bottone_scarica_allegati(v, cliente_id, cliente_nome)
 
                     if st.session_state.get(f"edit_diario_{v['id']}"):
                         _form_modifica_voce(v, utente)
 
-def _bottone_scarica_allegati(v, cliente_id):
-    """Se la voce arriva dal sito, offre lo zip dei documenti
-    caricati dal cliente col modulo online."""
+@st.cache_data(ttl=600, show_spinner=False)
+def _zip_allegati_sito(cliente_id, firma_docs):
+    """Prepara (e tiene in cache) lo zip dei documenti caricati
+    dal cliente tramite il modulo del sito. firma_docs serve solo
+    a invalidare la cache quando arrivano documenti nuovi."""
+    import io, zipfile
+    docs = [d for d in (lista_documenti(cliente_id) or [])
+            if str(d.get("note", "")).startswith("Richiesta dal sito")]
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for d in docs:
+            dati = scarica_documento(d["storage_path"])
+            if dati:
+                z.writestr(d["nome_file"], dati)
+    return buf.getvalue()
+
+
+def _bottone_scarica_allegati(v, cliente_id, cliente_nome=""):
+    """Sulle voci arrivate dal sito: download diretto, un solo click."""
     if not str(v.get("titolo", "")).startswith("[Sito]"):
         return
     docs = [d for d in (lista_documenti(cliente_id) or [])
             if str(d.get("note", "")).startswith("Richiesta dal sito")]
     if not docs:
         return
-    if st.button(f"📎 Scarica allegati ({len(docs)})", key=f"za_{v['id']}"):
-        import io, zipfile
-        buf = io.BytesIO()
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-            for d in docs:
-                dati = scarica_documento(d["storage_path"])
-                if dati:
-                    z.writestr(d["nome_file"], dati)
-        st.session_state[f"zip_{v['id']}"] = buf.getvalue()
-    if st.session_state.get(f"zip_{v['id']}"):
-        st.download_button(
-            "⬇️ Scarica ZIP",
-            data=st.session_state[f"zip_{v['id']}"],
-            file_name="allegati_richiesta_sito.zip",
-            mime="application/zip",
-            key=f"zdl_{v['id']}",
-        )
+    firma = tuple(sorted(str(d.get("id", d.get("storage_path", ""))) for d in docs))
+    dati_zip = _zip_allegati_sito(cliente_id, firma)
+    import re as _re
+    slug = _re.sub(r"[^A-Za-z0-9]+", "_", (cliente_nome or "cliente")).strip("_") or "cliente"
+    st.download_button(
+        f"📎 Scarica allegati ({len(docs)})",
+        data=dati_zip,
+        file_name=f"allegati_{slug}.zip",
+        mime="application/zip",
+        key=f"za_{v['id']}",
+    )
 
 
 def _form_nuova_voce(utente, cliente_id):
