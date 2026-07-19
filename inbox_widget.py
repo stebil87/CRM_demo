@@ -112,9 +112,114 @@ def _widget_lista(utente, nuove, titolo, vuoto, colore, chiave):
                     st.rerun()
 
 
+def controlla_posta():
+    """Scarica i messaggi non letti da info@rickcars.ch (IMAP) e li
+    inserisce nella inbox del CRM. Ritorna (importati, errore)."""
+    import imaplib
+    import email as email_lib
+    from email.header import decode_header, make_header
+    from db import inserisci_email_inbox
+
+    try:
+        server = st.secrets.get("EMAIL_IMAP_SERVER", "imap.mail.hostpoint.ch")
+        utente_mail = st.secrets["EMAIL_MITTENTE"]
+        password = st.secrets["EMAIL_PASSWORD"]
+    except Exception:
+        return 0, "Credenziali e-mail non configurate nei Secrets."
+
+    try:
+        conn = imaplib.IMAP4_SSL(server, timeout=15)
+        conn.login(utente_mail, password)
+        conn.select("INBOX")
+        stato, dati = conn.search(None, "UNSEEN")
+        ids = dati[0].split() if stato == "OK" and dati and dati[0] else []
+        importati = 0
+        for mid in ids[:30]:  # massimo 30 per volta, per non bloccare la pagina
+            stato, msg_dati = conn.fetch(mid, "(RFC822)")
+            if stato != "OK" or not msg_dati or not msg_dati[0]:
+                continue
+            msg = email_lib.message_from_bytes(msg_dati[0][1])
+
+            try:
+                oggetto = str(make_header(decode_header(msg.get("Subject", ""))))
+            except Exception:
+                oggetto = msg.get("Subject", "") or "(senza oggetto)"
+            try:
+                mittente = str(make_header(decode_header(msg.get("From", ""))))
+            except Exception:
+                mittente = msg.get("From", "") or "sconosciuto"
+
+            # niente doppioni ne' auto-importazioni
+            if oggetto.strip().startswith("[Sito]"):
+                continue  # gia' nel CRM per via diretta
+            if utente_mail.lower() in mittente.lower():
+                continue  # messaggio spedito da noi
+
+            corpo = ""
+            if msg.is_multipart():
+                for parte in msg.walk():
+                    disp = str(parte.get("Content-Disposition") or "")
+                    if parte.get_content_type() == "text/plain" and "attachment" not in disp:
+                        try:
+                            corpo = parte.get_payload(decode=True).decode(
+                                parte.get_content_charset() or "utf-8", "ignore")
+                        except Exception:
+                            corpo = ""
+                        break
+                if not corpo:
+                    for parte in msg.walk():
+                        if parte.get_content_type() == "text/html":
+                            import re as _re
+                            try:
+                                html = parte.get_payload(decode=True).decode(
+                                    parte.get_content_charset() or "utf-8", "ignore")
+                                corpo = _re.sub(r"<[^>]+>", " ", html)
+                                corpo = _re.sub(r"\s+", " ", corpo).strip()
+                            except Exception:
+                                corpo = ""
+                            break
+            else:
+                try:
+                    corpo = msg.get_payload(decode=True).decode(
+                        msg.get_content_charset() or "utf-8", "ignore")
+                except Exception:
+                    corpo = str(msg.get_payload() or "")
+
+            err = inserisci_email_inbox(mittente, oggetto, corpo[:10000])
+            if not err:
+                importati += 1
+        conn.logout()
+        return importati, None
+    except Exception as e:
+        return 0, str(e)
+
+
 def pagina_inbox(utente):
     """Pagina completa inbox con storico."""
     st.title("📧 Email")
+
+    # controllo automatico una volta per sessione
+    if not st.session_state.get("posta_controllata"):
+        with st.spinner("Controllo la casella info@rickcars.ch..."):
+            n, err = controlla_posta()
+        st.session_state["posta_controllata"] = True
+        if err:
+            st.warning(f"Casella non raggiungibile: {err}")
+        elif n:
+            st.success(f"{n} nuove email importate dalla casella.")
+
+    if st.button("🔄 Controlla posta adesso"):
+        with st.spinner("Controllo la casella..."):
+            n, err = controlla_posta()
+        if err:
+            st.error("Controllo non riuscito.")
+            st.caption(f"Dettaglio tecnico: {err}")
+        elif n:
+            st.success(f"{n} nuove email importate.")
+            st.rerun()
+        else:
+            st.info("Nessuna email nuova.")
+
     st.markdown("---")
 
     tab_nuove, tab_storico, tab_inserisci = st.tabs([
