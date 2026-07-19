@@ -2,14 +2,30 @@ import streamlit as st
 from db import lista_inbox_nuove, lista_inbox_storico, prendi_in_carico_email
 from datetime import datetime
 
+def _e_richiesta_sito(e):
+    return str(e.get("oggetto", "")).startswith("[Sito]")
+
+
+def widget_richieste_sito(utente):
+    """Widget dashboard — richieste arrivate dal modulo del sito."""
+    _widget_lista(utente, [e for e in lista_inbox_nuove() if _e_richiesta_sito(e)],
+                  titolo="Richieste dal sito", vuoto="Nessuna richiesta in attesa.",
+                  colore="#F97316", chiave="sito")
+
+
 def widget_inbox(utente):
-    """Widget dashboard — mostra solo email nuove da prendere in carico."""
-    nuove = lista_inbox_nuove()
+    """Widget dashboard — email normali (non dal sito) da prendere in carico."""
+    _widget_lista(utente, [e for e in lista_inbox_nuove() if not _e_richiesta_sito(e)],
+                  titolo="Email in arrivo", vuoto="Nessuna email in attesa.",
+                  colore="#e94560", chiave="mail")
+
+
+def _widget_lista(utente, nuove, titolo, vuoto, colore, chiave):
 
     st.markdown(
         "<div style='display:flex;align-items:center;justify-content:space-between;"
         "margin-bottom:12px;'>"
-        "<span style='font-size:13px;font-weight:600;color:#1a1a2e;'>Posta in arrivo</span>"
+        f"<span style='font-size:13px;font-weight:600;color:#1a1a2e;'>{titolo}</span>"
         + (
             f"<span style='background:#e94560;color:white;font-size:10px;"
             f"font-weight:700;padding:2px 8px;border-radius:10px;'>"
@@ -25,7 +41,7 @@ def widget_inbox(utente):
         st.markdown(
             "<div style='background:#f0faf4;border:1px solid #c3e6cb;"
             "border-radius:8px;padding:12px 16px;font-size:13px;color:#2d6a4f;'>"
-            "Nessuna email in attesa.</div>",
+            f"{vuoto}</div>",
             unsafe_allow_html=True
         )
         return
@@ -40,7 +56,7 @@ def widget_inbox(utente):
 
         st.markdown(
             "<div style='background:white;border:1px solid #eaeaf0;"
-            "border-left:4px solid #e94560;border-radius:8px;"
+            f"border-left:4px solid {colore};border-radius:8px;"
             "padding:10px 14px;margin-bottom:8px;'>"
             "<div style='display:flex;justify-content:space-between;"
             "align-items:flex-start;'>"
@@ -56,14 +72,14 @@ def widget_inbox(utente):
 
         col1, col2 = st.columns([2, 1])
         with col1:
-            if st.button("Apri e prendi in carico", key=f"inbox_apri_{e['id']}"):
-                st.session_state[f"inbox_open_{e['id']}"] = True
+            if st.button("Apri e prendi in carico", key=f"inbox_apri_{chiave}_{e['id']}"):
+                st.session_state[f"inbox_open_{chiave}_{e['id']}"] = True
         with col2:
-            if st.button("Prendi in carico", key=f"inbox_pic_{e['id']}"):
+            if st.button("Prendi in carico", key=f"inbox_pic_{chiave}_{e['id']}"):
                 prendi_in_carico_email(e["id"], utente["id"])
                 st.rerun()
 
-        if st.session_state.get(f"inbox_open_{e['id']}"):
+        if st.session_state.get(f"inbox_open_{chiave}_{e['id']}"):
             st.markdown(
                 "<div style='background:#fafafa;border:1px solid #eaeaf0;"
                 "border-radius:8px;padding:16px;margin-bottom:8px;'>"
@@ -80,25 +96,25 @@ def widget_inbox(utente):
             with col_a:
                 if st.button(
                     "Prendo in carico io",
-                    key=f"inbox_pic2_{e['id']}",
+                    key=f"inbox_pic2_{chiave}_{e['id']}",
                     use_container_width=True
                 ):
                     prendi_in_carico_email(e["id"], utente["id"])
-                    st.session_state[f"inbox_open_{e['id']}"] = False
+                    st.session_state[f"inbox_open_{chiave}_{e['id']}"] = False
                     st.rerun()
             with col_b:
                 if st.button(
                     "Chiudi",
-                    key=f"inbox_close_{e['id']}",
+                    key=f"inbox_close_{chiave}_{e['id']}",
                     use_container_width=True
                 ):
-                    st.session_state[f"inbox_open_{e['id']}"] = False
+                    st.session_state[f"inbox_open_{chiave}_{e['id']}"] = False
                     st.rerun()
 
 
 def pagina_inbox(utente):
     """Pagina completa inbox con storico."""
-    st.title("Posta condivisa")
+    st.title("📧 Email")
     st.markdown("---")
 
     tab_nuove, tab_storico, tab_inserisci = st.tabs([
@@ -159,8 +175,49 @@ def _scheda_email_completa(emails, utente, mostra_presa=True):
                 ):
                     prendi_in_carico_email(e["id"], utente["id"])
                     st.rerun()
+            _form_risposta(e, utente)
 
         yield e
+
+
+def _estrai_email(mittente):
+    """Pesca l'indirizzo e-mail dal campo mittente (anche nei formati
+    'Nome · +41... · mail@dominio.ch' usati dalle richieste del sito)."""
+    import re
+    m = re.search(r"[\w.+-]+@[\w-]+\.[\w.]+", str(mittente or ""))
+    return m.group(0) if m else ""
+
+
+def _form_risposta(e, utente):
+    from email_service import invia_email
+    dest_default = _estrai_email(e.get("mittente"))
+    with st.form(f"risposta_{e['id']}", clear_on_submit=False):
+        st.markdown("**Rispondi al cliente**")
+        dest = st.text_input("A", value=dest_default, key=f"rd_{e['id']}")
+        oggetto = st.text_input(
+            "Oggetto", value=f"Re: {e.get('oggetto','')}", key=f"ro_{e['id']}"
+        )
+        testo = st.text_area(
+            "Messaggio", height=160, key=f"rt_{e['id']}",
+            placeholder="Buongiorno,\n\n...\n\nCordiali saluti\nRickCars",
+        )
+        invia = st.form_submit_button("📤 Invia risposta")
+    if invia:
+        if not dest.strip() or not testo.strip():
+            st.error("Servono destinatario e messaggio.")
+            return
+        corpo_html = "<p>" + testo.strip().replace("\n", "<br>") + "</p>"
+        err = invia_email(dest.strip(), oggetto.strip() or "RickCars",
+                          corpo_html, tipo="risposta_inbox",
+                          riferimento_id=e["id"])
+        if err:
+            st.error("Invio non riuscito (configurazione SMTP mancante o errata).")
+            st.caption(f"Dettaglio tecnico: {err}")
+        else:
+            if not e.get("presa_in_carico"):
+                prendi_in_carico_email(e["id"], utente["id"])
+            st.success(f"Risposta inviata a {dest.strip()}.")
+            st.rerun()
 
 
 def _email_storico(e):
