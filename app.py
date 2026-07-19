@@ -20,8 +20,8 @@ import time as _time
 TIMEOUT_SECONDI = 600  # 10 minuti
 
 st.set_page_config(
-    page_title="AZIENDA — CRM",
-    page_icon="logo.png",
+    page_title="RICKCARS — CRM",
+    page_icon="logo.jpeg",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -433,7 +433,7 @@ if not utente:
             except:
                 st.markdown(
                     "<h2 style='text-align:center;color:white;'>"
-                    "AZIENDA</h2>",
+                    "RICKCARS</h2>",
                     unsafe_allow_html=True
                 )
 
@@ -450,7 +450,7 @@ if not utente:
         st.markdown(
             "<p style='font-size:11px;color:rgba(255,255,255,0.2);"
             "text-align:center;margin-top:24px;letter-spacing:0.3px;'>"
-            "AZIENDA &nbsp;·&nbsp; Piattaforma CRM &nbsp;·&nbsp; "
+            "RICKCARS &nbsp;·&nbsp; Piattaforma CRM &nbsp;·&nbsp; "
             "Uso riservato</p>",
             unsafe_allow_html=True
         )
