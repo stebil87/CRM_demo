@@ -410,18 +410,8 @@ def pagina_dashboard(utente):
         _widget_messaggi(utente)
 
     with col_inbox:
-        st.markdown("**Email in arrivo**")
-        st.markdown(
-            "<span style='background:#eaeaf0;color:#888;font-size:10px;"
-            "font-weight:600;padding:2px 8px;border-radius:10px;'>"
-            "Prossimamente</span>",
-            unsafe_allow_html=True
-        )
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.info(
-            "Le email ricevute su catering@... appariranno qui "
-            "e potranno essere prese in carico dal team."
-        )
+        from inbox_widget import widget_inbox
+        widget_inbox(utente)
 
     with col_avvisi:
         from eventi_catering import widget_avvisi_eventi
