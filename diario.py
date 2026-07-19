@@ -102,8 +102,9 @@ def _sezione_note(v, utente):
                     "created_by": utente["id"],
                 }).execute()
                 st.rerun()
-            except Exception:
-                st.error("Nota non salvata: riprova.")
+            except Exception as e:
+                st.error("Nota non salvata.")
+                st.caption(f"Dettaglio tecnico: {e}")
 
 
 @st.cache_data(ttl=600, show_spinner=False)
