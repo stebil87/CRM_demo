@@ -77,18 +77,32 @@ def widget_bozze_in_sospeso(utente):
         unsafe_allow_html=True,
     )
     icone = {"email": "✉️", "nota": "📝", "followup": "🔔", "cliente": "👤"}
+    # dove porta ciascun tipo di bozza + prefisso chiave usato in quella pagina
+    destinazioni = {
+        "email":    ("inbox",   None),
+        "cliente":  ("clienti", "cli"),
+        "nota":     ("clienti", None),   # il diario è dentro la scheda cliente
+        "followup": ("clienti", None),
+    }
     for b in bozze[:8]:
         a = b.get("autore") or {}
         autore = f"{a.get('nome','')} {a.get('cognome','')}".strip() or "—"
-        st.markdown(
-            "<div style='background:#fffdf5;border:1px solid #f0e6c0;"
-            "border-left:4px solid #d4a017;border-radius:8px;"
-            "padding:8px 12px;margin-bottom:6px;font-size:12px;'>"
-            f"{icone.get(b['contesto'],'📄')} <b>{b.get('titolo') or b['contesto']}</b>"
-            f"<span style='color:#999;'> · {autore} · {fmt_data(b.get('updated_at'),'%d/%m %H:%M')}</span>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
+        col_txt, col_go = st.columns([5, 1])
+        with col_txt:
+            st.markdown(
+                "<div style='background:#fffdf5;border:1px solid #f0e6c0;"
+                "border-left:4px solid #d4a017;border-radius:8px;"
+                "padding:8px 12px;font-size:12px;'>"
+                f"{icone.get(b['contesto'],'📄')} <b>{b.get('titolo') or b['contesto']}</b>"
+                f"<span style='color:#999;'> · {autore} · {fmt_data(b.get('updated_at'),'%d/%m %H:%M')}</span>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+        with col_go:
+            pagina, prefisso = destinazioni.get(b["contesto"], ("clienti", None))
+            if st.button("Vai ▸", key=f"vaibozza_{b['id']}"):
+                st.session_state.pagina = pagina
+                st.rerun()
 
 
 def riquadro_bozze(contesto, utente, key_prefix=""):
