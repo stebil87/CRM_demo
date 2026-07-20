@@ -576,7 +576,6 @@ with st.sidebar:
         ("offerte_all", "Offerte"),
         ("calendario",  "Calendario"),
         ("messaggi",    label_msg),
-        ("vacanze",     "Gestione vacanze"),
         ("inbox",       "Email"),
     ]
     if is_admin(utente):
@@ -650,7 +649,6 @@ breadcrumb_map = {
     "messaggi":    "Messaggi",
     "inbox":       "Email",
     "assistente":  "Assistente AI",
-    "vacanze":     "Gestione vacanze",
     "cucina":      "Cucina",
     "magazzino":   "Magazzino",
     "admin":       "Amministrazione",
