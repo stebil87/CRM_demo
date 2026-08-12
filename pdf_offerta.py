@@ -9,6 +9,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
 import io
 import json
+import os
 from datetime import date
 
 COLORE_PRIMARIO   = colors.HexColor("#1a1a2e")
@@ -18,6 +19,47 @@ COLORE_BORDO      = colors.HexColor("#dddde8")
 COLORE_TESTO      = colors.HexColor("#1a1a2e")
 COLORE_GRIGIO     = colors.HexColor("#888888")
 COLORE_UPGRADE    = colors.HexColor("#856404")
+
+# Nome mostrato nell'intestazione quando il logo non c'è
+NOME_AZIENDA = "RickCars"
+
+# Possibili nomi/percorsi del file logo, in ordine di preferenza.
+FILE_LOGO = (
+    "logo.jpeg",
+    "logo.jpg",
+    "logo.png",
+    "assets/logo.jpeg",
+)
+
+# Larghezza del logo nel PDF; l'altezza è calcolata dalle proporzioni reali
+# dell'immagine, così il logo non risulta schiacciato o stirato.
+LOGO_LARGHEZZA_MM = 45
+
+
+def _trova_logo():
+    """Restituisce un'immagine ReportLab per il logo, o None se il file
+    non esiste. Nota: ReportLab apre il file solo durante doc.build(),
+    quindi il controllo va fatto qui e non con un try/except attorno a
+    Image(), altrimenti l'errore esplode più tardi."""
+    from reportlab.platypus import Image as RLImage
+    base = os.path.dirname(os.path.abspath(__file__))
+    for nome in FILE_LOGO:
+        for percorso in (os.path.join(base, nome), nome):
+            if os.path.isfile(percorso):
+                try:
+                    larg = LOGO_LARGHEZZA_MM * mm
+                    try:
+                        from reportlab.lib.utils import ImageReader
+                        w_px, h_px = ImageReader(percorso).getSize()
+                        alt = larg * h_px / w_px
+                    except Exception:
+                        alt = larg * 0.4
+                    img = RLImage(percorso, width=larg, height=alt)
+                    img.hAlign = "LEFT"
+                    return img
+                except Exception:
+                    pass
+    return None
 COLORE_UPGRADE_BG = colors.HexColor("#fff8e1")
 
 
@@ -69,10 +111,8 @@ def genera_pdf_offerta(offerta, cliente):
     elementi = []
 
     # ── INTESTAZIONE ──────────────────────────────────
-    try:
-        from reportlab.platypus import Image as RLImage
-        logo = RLImage("1908_Group_Black.png", width=45 * mm, height=18 * mm)
-        logo.hAlign = "LEFT"
+    logo = _trova_logo()
+    if logo is not None:
         t_int = Table(
             [[logo, Paragraph("OFFERTA COMMERCIALE", s_titolo_doc)]],
             colWidths=[60 * mm, larghezza - 60 * mm]
@@ -82,9 +122,17 @@ def genera_pdf_offerta(offerta, cliente):
             ("ALIGN", (1, 0), (1, 0), "RIGHT"),
         ]))
         elementi.append(t_int)
-    except:
-        elementi.append(Paragraph("1908 Group SA", s_bold))
-        elementi.append(Paragraph("OFFERTA COMMERCIALE", s_titolo_doc))
+    else:
+        t_int = Table(
+            [[Paragraph(NOME_AZIENDA, s_bold),
+              Paragraph("OFFERTA COMMERCIALE", s_titolo_doc)]],
+            colWidths=[60 * mm, larghezza - 60 * mm]
+        )
+        t_int.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+        ]))
+        elementi.append(t_int)
 
     elementi.append(Spacer(1, 3 * mm))
     elementi.append(HRFlowable(
@@ -359,7 +407,7 @@ def genera_pdf_offerta(offerta, cliente):
         width="100%", thickness=1, color=COLORE_PRIMARIO))
     elementi.append(Spacer(1, 3 * mm))
     elementi.append(Paragraph(
-        "1908 Group SA   |   Documento generato automaticamente dalla "
+        NOME_AZIENDA + "   |   Documento generato automaticamente dalla "
         "piattaforma CRM   |   Riservato e confidenziale",
         s_footer
     ))
